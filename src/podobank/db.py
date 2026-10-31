@@ -129,27 +129,15 @@ class AccountRepository:
 
 class EventRepository:
     def append(self, connection: Connection, event: Event) -> Event:
-        connection.execute(
-            text(
-                "UPDATE event_sequence_state "
-                "SET last_sequence = last_sequence + 1 WHERE singleton_id = 1"
-            )
-        )
-        sequence = int(
-            connection.execute(
-                text("SELECT last_sequence FROM event_sequence_state WHERE singleton_id = 1")
-            ).scalar_one()
-        )
         result = connection.execute(
             text(
                 "INSERT INTO domain_events "
-                "(sequence, event_id, schema_version, event_type, occurred_at, recorded_at, "
+                "(event_id, schema_version, event_type, occurred_at, recorded_at, "
                 "correlation_id, entity_refs, data) VALUES "
-                "(:sequence, :event_id, :schema_version, :event_type, :occurred_at, :recorded_at, "
+                "(:event_id, :schema_version, :event_type, :occurred_at, :recorded_at, "
                 ":correlation_id, :entity_refs, :data)"
             ),
             {
-                "sequence": sequence,
                 "event_id": event.event_id,
                 "schema_version": event.schema_version,
                 "event_type": event.event_type,
@@ -167,16 +155,7 @@ class EventRepository:
             ),
             {"event_id": event.event_id, "created_at": _to_database_time(event.recorded_at)},
         )
-        if result.rowcount != 1:
-            raise RuntimeError("event sequence insert did not write one event")
-        return replace(event, sequence=sequence)
-
-    def high_water(self, connection: Connection) -> int:
-        return int(
-            connection.execute(
-                text("SELECT last_sequence FROM event_sequence_state WHERE singleton_id = 1")
-            ).scalar_one()
-        )
+        return replace(event, sequence=int(result.lastrowid or 0))
 
     def list_after(
         self,
@@ -185,11 +164,6 @@ class EventRepository:
         after_sequence: int,
         high_water_sequence: int,
         limit: int,
-        event_type: str | None = None,
-        entity_id: str | None = None,
-        correlation_id: str | None = None,
-        occurred_from: datetime | None = None,
-        occurred_to: datetime | None = None,
     ) -> list[Event]:
         if after_sequence < 0 or high_water_sequence < after_sequence:
             raise ValueError("event cursor sequence bounds are invalid")
@@ -200,25 +174,12 @@ class EventRepository:
                 "SELECT sequence, event_id, schema_version, event_type, occurred_at, recorded_at, "
                 "correlation_id, entity_refs, data FROM domain_events "
                 "WHERE sequence > :after_sequence AND sequence <= :high_water_sequence "
-                "AND (:event_type IS NULL OR event_type = :event_type) "
-                "AND (:entity_id IS NULL OR "
-                "JSON_SEARCH(entity_refs, 'one', :entity_id) IS NOT NULL) "
-                "AND (:correlation_id IS NULL OR correlation_id = :correlation_id) "
-                "AND (:occurred_from IS NULL OR occurred_at >= :occurred_from) "
-                "AND (:occurred_to IS NULL OR occurred_at < :occurred_to) "
                 "ORDER BY sequence ASC LIMIT :limit"
             ),
             {
                 "after_sequence": after_sequence,
                 "high_water_sequence": high_water_sequence,
                 "limit": limit,
-                "event_type": event_type,
-                "entity_id": entity_id,
-                "correlation_id": correlation_id,
-                "occurred_from": (
-                    _to_database_time(occurred_from) if occurred_from is not None else None
-                ),
-                "occurred_to": _to_database_time(occurred_to) if occurred_to is not None else None,
             },
         ).mappings()
         events: list[Event] = []
@@ -350,19 +311,6 @@ class Database:
             for statement in statements:
                 if statement:
                     connection.exec_driver_sql(statement)
-            connection.execute(
-                text(
-                    "INSERT IGNORE INTO event_sequence_state (singleton_id, last_sequence) "
-                    "VALUES (1, 0)"
-                )
-            )
-            connection.execute(
-                text(
-                    "UPDATE event_sequence_state SET last_sequence = GREATEST(last_sequence, "
-                    "(SELECT COALESCE(MAX(sequence), 0) FROM domain_events)) "
-                    "WHERE singleton_id = 1"
-                )
-            )
 
     def transaction(self) -> Any:
         return self.engine.begin()
