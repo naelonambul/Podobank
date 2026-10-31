@@ -51,5 +51,5 @@ An `incident` change starts from a report (a ticket, an alert, a monitor) and it
 Follow the Lifecycle and Closure sections of `changes/README.md`, which define the order, the evidence rules, and what to do after a fix. In addition:
 
 - When the change touches `AGENTS.md`, a skill or the guard, run the probes in `docs/agent-surfaces.md` once and record the result there.
-- `git add` the new `closure.json`; `commit -a` does not pick up new files.
-- Make the last push yourself: the owner can approve only a pull request the agent identity authored and pushed last (`docs/host-setup.md`).
+- Use `agent-git add` for the new `closure.json`; `commit -a` does not pick up new files.
+- Commit with `agent-git`, make the last push with `agent-gh push`, and create the pull request with `agent-gh pr create` from the repository directory without `-C`. The PR and its commits must show `mini26-agent[bot]`. The owner approves and merges in the current stage; the agent does not merge. See `docs/host-setup.md`.
