@@ -1,0 +1,1 @@
+"""Podobank synthetic banking API."""

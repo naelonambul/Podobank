@@ -1,0 +1,45 @@
+[build-system]
+requires = ["hatchling>=1.26,<2"]
+build-backend = "hatchling.build"
+
+[project]
+name = "podobank"
+version = "0.1.0"
+description = "Synthetic bank simulator for MLOps bootcamp data pipelines"
+readme = "README.md"
+requires-python = ">=3.13,<3.14"
+dependencies = [
+    "beautifulsoup4>=4.13,<5",
+    "fastapi>=0.115,<1",
+    "prometheus-client>=0.21,<1",
+    "pymysql>=1.1,<2",
+    "sqlalchemy>=2.0,<3",
+    "uvicorn[standard]>=0.34,<1",
+]
+
+[dependency-groups]
+dev = [
+    "httpx>=0.28,<1",
+    "mypy>=1.15,<2",
+    "pytest>=8.3,<9",
+    "ruff>=0.11,<1",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/podobank"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-ra"
+
+[tool.ruff]
+line-length = 100
+target-version = "py313"
+
+[tool.ruff.lint]
+select = ["B", "E", "F", "I", "UP"]
+
+[tool.mypy]
+python_version = "3.13"
+mypy_path = "src"
+strict = true
