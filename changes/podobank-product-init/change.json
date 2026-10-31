@@ -1,0 +1,39 @@
+{
+  "schema": 1,
+  "id": "podobank-product-init",
+  "kind": "product-init",
+  "title": "Define and initialize the Podobank product",
+  "base": {
+    "ref": "main",
+    "commit": "e189f0b2bf70778ec20306e5e02d16b5f3ddb313"
+  },
+  "baseline": {},
+  "write_scope": [
+    "intent.md",
+    "spec.md"
+  ],
+  "approvals": [
+    {
+      "artifact": "intent.md",
+      "sha256": "sha256:1c52f785b442a84d8da31f9fc381f316aab81421071cbe210634a94b34f37d5c",
+      "by": "naelonambul",
+      "at": "2026-10-31T13:42:27Z",
+      "note": "Owner approved the current intent draft in conversation."
+    },
+    {
+      "artifact": "spec.md",
+      "sha256": "sha256:940afaa73c12fc69cb657b2f2667d346ae50ba0d63fcd98f6b6e6de1143116a6",
+      "by": "naelonambul",
+      "at": "2026-10-31T13:55:00Z",
+      "note": "Owner approved the latest spec draft in conversation."
+    },
+    {
+      "artifact": "plan.md",
+      "sha256": "sha256:5ae5dd511976216580f47e922bec475d702767366f5feb57e18f953500496940",
+      "by": "naelonambul",
+      "at": "2026-10-31T14:01:23Z",
+      "write_scope_sha256": "sha256:38a33b23245be293f9d810ab5bdf8d77b032e7be87cce62a673b591a2b20843a",
+      "note": "Owner approved the current Korean implementation plan in conversation."
+    }
+  ]
+}
