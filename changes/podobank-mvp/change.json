@@ -10,7 +10,22 @@
   "baseline": {},
   "write_scope": [
     "intent.md",
-    "spec.md"
+    "spec.md",
+    "src/**",
+    "tests/**",
+    "README.md",
+    "pyproject.toml",
+    "uv.lock",
+    ".python-version",
+    ".gitignore",
+    ".env.example",
+    "Dockerfile",
+    ".dockerignore",
+    "compose.yaml",
+    "deploy/**",
+    "infra/aws/**",
+    "checks.json",
+    ".github/workflows/repository.yml"
   ],
   "approvals": [
     {
@@ -26,6 +41,14 @@
       "by": "naelonambul",
       "at": "2026-10-31T03:24:47Z",
       "note": "Owner approved spec SHA-256 9dcc84d99b252ca2cc258df655947f1d7edcad577d6403b35252ddc9e3e4fa41."
+    },
+    {
+      "artifact": "plan.md",
+      "sha256": "sha256:bd4308ff35800b769301b0f438b9293ab3fb638ef351701e87db420adb347593",
+      "by": "naelonambul",
+      "at": "2026-10-31T03:37:12Z",
+      "write_scope_sha256": "sha256:e46fc664c2d44ae4f591039ec9f845689777e64183b87189fb7480f6b36aa21f",
+      "note": "Owner approved plan SHA-256 bd4308ff35800b769301b0f438b9293ab3fb638ef351701e87db420adb347593 and selected Native execution."
     }
   ]
 }
