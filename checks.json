@@ -1,0 +1,15 @@
+{
+  "schema": 1,
+  "baseline_branch": "main",
+  "checks": [
+    {
+      "id": "control-plane",
+      "group": "core",
+      "argv": ["python3", "-m", "unittest", "discover", "-s", "scripts/tests", "-t", "."],
+      "cwd": ".",
+      "timeout_seconds": 600,
+      "paths": ["scripts/**", "checks.json", "changes/**", ".github/**", ".claude/**", ".agents/**", "AGENTS.md", "intent.md", "spec.md", ".gitattributes"],
+      "requires": ["python3", "git"]
+    }
+  ]
+}
