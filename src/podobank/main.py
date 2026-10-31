@@ -21,6 +21,7 @@ from podobank.routes import (
     accounts_router,
     catalog_router,
     events_router,
+    loans_router,
     sandbox_router,
     transfers_router,
 )
@@ -68,6 +69,7 @@ def create_app(database_url: str, settings: Settings) -> FastAPI:
     app.include_router(transfers_router)
     app.include_router(events_router)
     app.include_router(catalog_router)
+    app.include_router(loans_router)
 
     @app.exception_handler(RequestValidationError)
     async def request_validation_error(_: Request, __: RequestValidationError) -> JSONResponse:

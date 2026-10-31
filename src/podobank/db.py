@@ -314,6 +314,66 @@ class CatalogSnapshotRepository:
         ).scalar_one_or_none()
         return _from_database_time(value) if value is not None else None
 
+    def get_by_id(self, connection: Connection, snapshot_id: str) -> dict[str, Any] | None:
+        row = (
+            connection.execute(
+                text(
+                    "SELECT snapshot_id, product_ref, institution_name, product_name, "
+                    "product_category, facts_json, source_url, retrieved_at, effective_date, "
+                    "source_status, created_at FROM loan_product_snapshots "
+                    "WHERE snapshot_id = :snapshot_id"
+                ),
+                {"snapshot_id": snapshot_id},
+            )
+            .mappings()
+            .first()
+        )
+        return self._snapshot_row(row) if row is not None else None
+
+    def get_latest_for_product(
+        self, connection: Connection, product_ref: str
+    ) -> dict[str, Any] | None:
+        row = (
+            connection.execute(
+                text(
+                    "SELECT snapshot_id, product_ref, institution_name, product_name, "
+                    "product_category, facts_json, source_url, retrieved_at, effective_date, "
+                    "source_status, created_at FROM loan_product_snapshots "
+                    "WHERE product_ref = :product_ref "
+                    "ORDER BY created_at DESC, snapshot_id DESC LIMIT 1"
+                ),
+                {"product_ref": product_ref},
+            )
+            .mappings()
+            .first()
+        )
+        return self._snapshot_row(row) if row is not None else None
+
+    def list_current(
+        self, connection: Connection, *, high_water_created_at: datetime, limit: int = 1001
+    ) -> list[dict[str, Any]]:
+        rows = connection.execute(
+            text(
+                "WITH ranked AS ("
+                "SELECT snapshot_id, product_ref, institution_name, product_name, "
+                "product_category, facts_json, source_url, retrieved_at, effective_date, "
+                "source_status, created_at, ROW_NUMBER() OVER ("
+                "PARTITION BY product_ref ORDER BY created_at DESC, snapshot_id DESC) "
+                "AS snapshot_rank FROM loan_product_snapshots "
+                "WHERE created_at <= :high_water_created_at) "
+                "SELECT snapshot_id, product_ref, institution_name, product_name, "
+                "product_category, facts_json, source_url, retrieved_at, effective_date, "
+                "source_status, created_at FROM ranked WHERE snapshot_rank = 1 "
+                "AND source_status = 'active' "
+                "ORDER BY institution_name ASC, product_ref ASC LIMIT :limit"
+            ),
+            {
+                "high_water_created_at": _to_database_time(high_water_created_at),
+                "limit": limit,
+            },
+        ).mappings()
+        return [self._snapshot_row(row) for row in rows]
+
     def latest_for_institution(
         self, connection: Connection, institution_name: str
     ) -> list[dict[str, Any]]:
