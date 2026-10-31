@@ -2,7 +2,7 @@
 
 ## Summary
 
-Podobank is an API-only bank simulator for an MLOps bootcamp. It generates synthetic customer, account, loan, and partner-payment activity and stores immutable events that participants can retrieve for data-pipeline exercises. A single service handles the simulated flows and exposes interactive API documentation. It periodically stores normalized product facts from public pages of selected first-tier Korean banks so synthetic customer profiles can receive explainable product comparisons and recommendations.
+Podobank is an API-only bank simulator for an MLOps bootcamp. A FastAPI service generates synthetic customer, account, loan, and partner-payment activity and stores immutable business events in MariaDB for data-pipeline exercises. It exposes interactive API documentation and emits structured event and operational logs for Grafana Alloy to deliver to Loki; Prometheus collects service metrics, and Grafana provides operator dashboards. The deployment target is AWS. Nginx is reserved for serving a future frontend and does not proxy the MVP API.
 
 No account, loan, payment, or recommendation in Podobank represents a real financial transaction, binding offer, credit decision, or bank relationship.
 
@@ -57,13 +57,22 @@ No account, loan, payment, or recommendation in Podobank represents a real finan
    - Publish English OpenAPI documentation with an interactive request explorer, sandbox examples, schemas, response codes, and idempotency guidance.
    - The documentation examples use synthetic values and make the simulated nature of every operation clear.
 
+9. **Operational telemetry and deployment**
+   - Run the API service and MariaDB with the Loki, Grafana, Prometheus, and Grafana Alloy services in the AWS bootcamp environment.
+   - Emit one structured JSON log record after each committed business event. Include its event ID, event type, correlation ID, outcome, and synthetic business payload so participants can follow related activity in Loki. MariaDB remains the authoritative event store; consumers can deduplicate log copies by event ID.
+   - Expose a private Prometheus metrics endpoint for request latency and counts, operation outcomes, event appends, and catalog refresh results. Metric labels must not contain customer, account, payment, or other per-record identifiers.
+   - Configure Alloy to collect FastAPI structured logs and deliver them to Loki, and configure Prometheus to collect service metrics. Grafana provides operator dashboards over Loki and Prometheus.
+   - Keep the MVP API-only. Nginx is used only when a separate frontend is introduced; it serves that frontend and does not proxy or replace the FastAPI API.
+
 ### Non-functional
 
-- The product is a single service with one transactional persistence boundary and append-only event records. It does not require microservices, a message broker, or real-time event delivery.
-- A state-changing business operation and its events commit atomically. A failure cannot leave balances changed without the corresponding events, or events claiming a completed operation whose balances were not changed.
+- The product has one FastAPI application service and one MariaDB transactional persistence boundary for synthetic state and append-only business events. Alloy, Loki, Grafana, and Prometheus are supporting telemetry services; they do not replace the event store. The product does not require business microservices, a message broker, or real-time event delivery.
+- A state-changing business operation and its MariaDB events commit atomically. A failure cannot leave balances changed without the corresponding events, or events claiming a completed operation whose balances were not changed.
 - Event and product snapshot reads are stable under cursor pagination: continuing from a cursor must not silently skip or repeat records in the same query view.
 - All identifiers and event payloads represent synthetic bootcamp data. Real personal data, real account numbers, bank credentials, and API secrets are excluded from events and example requests.
 - Product snapshots expose source attribution and retrieval time so participants can account for staleness and reproduce historical comparisons.
+- The service and supporting telemetry stack are deployable in AWS. The MariaDB instance and telemetry administration endpoints are not publicly exposed.
+- Operational event logs carry the same stable event ID as the MariaDB record. Loki delivery is for observability and pipeline exercises; the MariaDB event API remains authoritative if log delivery is delayed or duplicated.
 
 ## User experience and behavior
 
@@ -74,15 +83,19 @@ No account, loan, payment, or recommendation in Podobank represents a real finan
 - Every accepted write returns its primary resource identifier and the event identifiers created by that operation. A repeated idempotent request returns the original result.
 - Event consumers use polling and cursor pagination. The API does not promise streaming or immediate downstream delivery.
 - Product responses identify the catalog snapshot timestamp. If a product source is unavailable or a field is not published, the API reports stale or unknown data rather than filling it with an estimate.
+- Operators inspect service logs and metrics in authenticated Grafana dashboards. The Grafana, Loki, Prometheus, and MariaDB interfaces are private to the AWS bootcamp environment.
+- FastAPI serves `/docs`, `/openapi.json`, `/healthz`, and a private `/metrics` endpoint. The MVP has no frontend and no Nginx API proxy.
 
 ## Architecture and design
 
-- Implement the product as one service and one transactional persistence boundary. Persist current simulated account/loan/payment state alongside immutable event records; state projections may be updated, but event records are append-only.
-- Commit balance changes, primary resource state, and corresponding events in one database transaction.
-- Keep a source adapter for each configured bank page. Run the refresh as a bounded scheduled batch in the service environment; a source failure preserves the last known snapshot and records refresh health without deleting prior data.
+- Implement one FastAPI application service backed by MariaDB. Persist current simulated account/loan/payment state alongside immutable business event records; state projections may be updated, but event records are append-only.
+- Commit balance changes, primary resource state, idempotency results, and corresponding events in one MariaDB transaction.
+- Keep a source adapter for each configured bank page. Run the refresh as a bounded scheduled batch in the AWS environment; prevent duplicate concurrent refreshes when the API is scaled. A source failure preserves the last known snapshot and records refresh health without deleting prior data.
 - Store product snapshots immutably and reference a specific snapshot ID from each recommendation result.
-- Expose event and product data through pull endpoints. No broker, webhook delivery, or separate worker service is required by this specification.
-- Keep framework and database choices for the implementation plan; they must support atomic writes, persistent local development, and the repository's registered quality checks.
+- Emit structured FastAPI logs to stdout. Run Grafana Alloy as a collector that forwards application logs to Loki; expose application metrics for Prometheus scraping; configure Grafana dashboards over those data sources.
+- Keep business-event retrieval through the MariaDB-backed pull API. No broker, webhook delivery, or separate business worker service is required by this specification.
+- Deploy the API, database, and telemetry services in AWS with private networking for MariaDB and telemetry administration. Exact AWS service placement, region, and deployment automation are selected in the implementation plan after owner review.
+- Nginx is out of the MVP request path. When a frontend is added in a later change, Nginx serves its static assets only and does not proxy API requests.
 
 ## Interfaces, data, and dependencies
 
@@ -102,6 +115,8 @@ No account, loan, payment, or recommendation in Podobank represents a real finan
 | `POST /v1/payments` | Initiate a partner-requested simulated bank-transfer payment. |
 | `GET /v1/payments/{paymentId}` | Read the payment's simulated status and partner reference. |
 | `GET /v1/events` | Poll append-only events with filters and cursor pagination. |
+| `GET /healthz` | Return service health for AWS health checks without exposing secrets or customer data. |
+| `GET /metrics` | Expose service metrics for private Prometheus scraping; never include per-record identifiers as labels. |
 
 ### Event envelope
 
@@ -117,12 +132,16 @@ Each product snapshot has an immutable snapshot ID, stable product reference whe
 
 - Official public product pages from the first-tier bank allowlist are the only source for actual bank product facts in the MVP.
 - Product retrieval is periodic and may be stale between refreshes. No customer-specific bank API, FSS API storage, credit bureau, payment gateway, or real financial account is a dependency.
-- The service requires persistent transactional storage and a scheduler available in the selected runtime. Exact technologies are selected in the implementation plan.
+- The service requires MariaDB for transactional state and event persistence, Grafana Alloy for telemetry collection, Loki for logs, Prometheus for metrics, and Grafana for operator dashboards.
+- AWS is the target runtime. The exact AWS deployment service, region, and infrastructure-as-code approach are selected in the implementation plan.
+- Nginx is reserved for serving a future frontend and is not required to serve the MVP API or its FastAPI documentation.
 
 ## Security, privacy, and policy constraints
 
 - Use synthetic profiles and credentials only. Do not collect or persist real customer identity, real credit reports, real account credentials, or production payment data.
 - Do not expose secrets in OpenAPI examples, events, error responses, or logs.
+- Keep MariaDB, Loki, Prometheus, and Grafana administration endpoints private within the AWS environment. Inject deployment secrets from an AWS-managed secret store rather than committing them.
+- Avoid sensitive or high-cardinality metric labels. Structured Loki records contain only synthetic business data and operational diagnostics.
 - Product retrieval is limited to public official pages and must honor source-specific access conditions. Do not bypass authentication, anti-bot controls, or access restrictions.
 - Clearly label product comparisons, recommendations, balances, loan outcomes, and partner payments as simulated and non-binding.
 - Do not implement fraud detection, anomaly classification, real credit underwriting, or real payment processing.
@@ -133,6 +152,8 @@ Each product snapshot has an immutable snapshot ID, stable product reference whe
 - Publicly displayed loan rates and eligibility may depend on a real borrower's circumstances. Recommendations must show the published range and source time and must not imply a personalized bank quote or approval.
 - Scenario-generated events can be mistaken for real activity if examples omit simulation labels. Mark the API documentation, event envelope, and generated records as synthetic.
 - A partial failure during a transfer or payment could produce inconsistent state and logs. Atomic persistence is an acceptance requirement.
+- Loki delivery can lag or duplicate a committed event log. Keep MariaDB authoritative and include stable event IDs in Loki records.
+- The AWS telemetry stack adds hosting and storage cost. The implementation plan must define bounded retention and a bootcamp-sized deployment footprint.
 
 ## Acceptance criteria
 
@@ -146,7 +167,11 @@ Each product snapshot has an immutable snapshot ID, stable product reference whe
 8. The event API supports cursor pagination and the specified filters, and related flow events can be joined by IDs and correlation ID.
 9. `/docs` provides interactive English API documentation with working synthetic examples for every public endpoint in this specification.
 10. No feature performs real anomaly detection, real credit decisions, real account access, real lending, or real payment settlement.
+11. The API and telemetry stack run in the selected AWS environment with MariaDB as the persistent event and simulation store; MariaDB and telemetry administration endpoints are not publicly reachable.
+12. Every committed domain event produces a structured log record with the same event ID and correlation ID; Alloy delivers it to Loki, where it can be queried in Grafana. Prometheus scrapes the private metrics endpoint, and Grafana displays the service metrics.
+13. The MVP contains no frontend. Nginx does not serve or proxy the API; it is reserved for static frontend hosting in a later change.
 
 ## Open questions
 
 - Which first-tier Korean banks should be included in the initial source allowlist? The implementation plan must select only sources with public product pages and a workable access policy.
+- Which AWS deployment topology and region should the implementation use, and what bootcamp budget and retention period should bound the Loki/Prometheus/Grafana footprint?
