@@ -4,7 +4,7 @@ GitHub does not copy repository settings, rulesets, or merge settings from a tem
 
 ## The setup, in two trust stages
 
-The repository has two actors: the owner, and a coding agent that works under its own GitHub App identity. The agent commits, pushes and opens every pull request. The owner's decisions are recorded in the repository as `repo.py approve` claims on the change artifacts.
+The repository has two actors: the owner and a coding agent working under the repository's GitHub App, `mini26-agent`. The agent commits, pushes and opens every pull request. In the current trust stage, the owner approves and merges each pull request. The owner's decisions are recorded in the repository as `repo.py approve` claims on the change artifacts.
 
 | | Now | Target |
 |---|---|---|
@@ -14,9 +14,9 @@ The repository has two actors: the owner, and a coding agent that works under it
 
 The current stage is enforced by the ruleset, not by habit: with one required approval and `require_last_push_approval`, GitHub refuses the merge until the owner has approved the bot's last push. The switch to the target stage is one settings change, setting the required approval count to 0, after which the agent merges through the App's existing pull-request permission. Nothing in the repository changes.
 
-The one rule this imposes on the agent: **the bot makes the last push.** A pull-request author cannot approve their own pull request, and the approver cannot be the last pusher. Because the bot authors and last-pushes, the owner can approve. If the owner has to push after the agent, the agent pushes once more afterwards, with a real change such as refreshed closure evidence, before the owner reviews.
+The one rule this imposes on the agent: **the bot makes the last push.** A pull-request author cannot approve their own pull request, and the approver cannot be the last pusher. Because the bot authors and pushes last, the owner can approve. If a later bot change is needed, the bot pushes it before the owner reviews again.
 
-A session that pushes under the owner's own token (for example a cloud session without the App) breaks that rule: the owner is then the author and cannot approve. Merge such a pull request without a GitHub approval, as the owner, or let the bot push last.
+Do not use the owner's `git push` or `gh pr` to substitute for the bot's authoring or last push. If the App wrappers are unavailable or reject an operation, stop and report the issue so the owner can restore the App path. The owner may use owner credentials for host setup, review, approval and merge, but not to author, push or create the agent's pull request.
 
 ## Merge policy
 
@@ -71,18 +71,33 @@ Without a ruleset (for example a private repository on GitHub Free, where the ru
 
 ## The agent's identity
 
-A GitHub App owned by the repository owner, with no webhook, installed on selected repositories only, with these repository permissions and no others:
+The sole bot account is GitHub App `mini26-agent`, displayed by GitHub as `mini26-agent[bot]`. `naelonambul-agent` is a retired display name for the same account, not a separate account. Every commit must use this identity:
 
-- Contents: read and write; Pull requests: read and write; Metadata, Checks and Actions: read.
-- Not Administration, Workflows or Secrets. The App cannot change rulesets or settings, GitHub rejects its pushes that touch `.github/workflows/**`, so the owner makes workflow changes, and it cannot approve a pull request as the owner.
+```text
+mini26-agent[bot] <332920101+mini26-agent[bot]@users.noreply.github.com>
+```
+
+Use the command wrappers from the repository directory. They dispatch by the first command word, so do not put `-C <path>` before a command.
+
+| Wrapper | Use | Refused operations |
+|---|---|---|
+| `agent-git` | Local operations such as `add`, `commit`, `log` and `status`. It does not receive a token. | `push`, `pull`, `fetch`, `clone` and `ls-remote` |
+| `agent-gh` | Remote `push`, `pull`, `fetch`, `clone` and `ls-remote` using the App token. `agent-gh pr ...` runs `gh pr ...`. | All other commands |
+
+The agent cannot work on issues or use `gh api`. Do not call raw `git` or `gh` to bypass the wrappers. The App has pull-request merge permission, but permission is not authorization: in the current stage, the ruleset requires owner approval and repository policy reserves merge to the owner. The target stage in the table above remains a future host transition.
+
+The GitHub App is owned by the repository owner, has no webhook, and is installed on selected repositories only, with these repository permissions and no others:
+
+- Contents: read and write; Pull requests: read and write, including merge permission; Metadata, Checks and Actions: read.
+- Not Administration, Workflows or Secrets. The App cannot change rulesets or settings. Its token has no `workflows` permission, so a push touching `.github/workflows/**` is rejected; stop and tell the owner, who handles workflow changes. The App cannot approve a pull request as the owner.
 
 Add each new repository to the App's installation before an agent starts work: **Settings → Applications → Installed GitHub Apps → the App → Configure → Repository access → Only select repositories → Select repositories → Save**. Only the owner can do this, and creating a repository from the template does not do it. Until then, minting a token for that repository fails, for example with HTTP 422, and the agent cannot push under its identity. If the token helper has its own repository allowlist, add the repository there too. Mint one token to confirm before starting.
 
-Keep the App's private key outside every repository, readable only by the owner, never in agent context. Mint short-lived installation tokens restricted to one repository; they expire after an hour and are never stored. Commit as `<app-slug>[bot]` with the email `<bot-user-id>+<app-slug>[bot]@users.noreply.github.com`. Never add the App as a ruleset bypass actor. The token helper is host-specific and lives outside the repository.
+Keep the App's private key outside every repository, readable only by the owner, never in agent context. Mint short-lived installation tokens restricted to one repository; they expire after an hour and are never stored. Never add the App as a ruleset bypass actor. The token helper is host-specific and lives outside the repository.
 
 ## Read-only host check
 
-These commands only read. Run them after creating a repository from the template, and whenever host settings change.
+These commands only read and are for the owner to run when checking host settings. The agent cannot use `gh api`; this owner-only access does not replace the bot's authoring, push or pull-request path.
 
 ```sh
 gh api repos/OWNER/REPO/rules/branches/main --jq '[.[].type] | sort'

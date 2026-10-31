@@ -13,6 +13,7 @@ Hard repository rules must never depend on an agent having read `AGENTS.md`. The
 - `AGENTS.md` is the canonical instruction source.
 - `.agents/skills/<name>/SKILL.md` holds the only copy of each shared skill.
 - `scripts/repo.py`, `checks.json`, CI and the required human pull-request review decide what may change and whether a change is accepted.
+- GitHub work uses `agent-git` for local Git operations and `agent-gh` for remote operations. The bot identity and owner handoff are documented in `docs/host-setup.md`.
 - The `change-execution` skill defines execution roles (`coordinator`, `worker`, `reviewer`), cost tiers (`high`, `standard`, `economy`), the worker and review briefs, and mechanical acceptance. It names no model and no harness configuration path.
 
 Nothing in the repository depends on which harness or model does the work.
@@ -71,17 +72,28 @@ The `workspace-write` sandbox keeps `.git` read-only, so Codex cannot commit in 
 | 2026-10-31 | Claude Code CLI 2.1.314 | changed `AGENTS.md` and skills; no `CLAUDE.md`, adapters present; probes run non-interactively in a scratch copy | yes (no, with a shadowing `CLAUDE.md`) | 4/4 core skills |
 | 2026-10-31 | Codex CLI 0.166.0 | same scratch copy, `codex exec --skip-git-repo-check --sandbox read-only` | yes | 4/4 core skills |
 
+### GitHub-wrapper instruction probes
+
+These probes confirm that each harness receives the current local/remote command rule. They do not verify App-token authentication or the remote push actor.
+
+| Date | Surface | Version | `AGENTS` | `GITHUB_RULE` | Project skills |
+|---|---|---|---|---|---|
+| 2026-10-31 | Claude Code CLI | 2.1.314 | yes | yes | 4/4: `change-execution`, `repository-quality`, `sdlc-artifacts`, `verification-map` |
+| 2026-10-31 | Codex CLI | 0.166.0 | yes | yes | 4/4: `change-execution`, `repository-quality`, `sdlc-artifacts`, `verification-map` (completed after WebSocket failure and HTTP fallback) |
+
 The desktop app is **not verified**. Re-run the procedure below from a desktop session before claiming support. No other agent surface has been tested. Cursor is not a target.
 
 ### Smoke-test procedure
 
-Run it against a scratch copy of the repository, never the working checkout:
+Run it against a scratch copy of the repository, never the working checkout. Create the local copy without invoking raw Git commands:
 
 ```sh
-git clone . /tmp/agent-smoke && cd /tmp/agent-smoke
-Q='Answer from your loaded context only; do not call any tool. Line 1: "AGENTS=yes" if your context contains a document headed "Repository Agent Instructions", else "AGENTS=no". Line 2: "SKILLS=" followed by a comma-separated list of the project skills listed as available to you.'
+SMOKE_DIR="$(mktemp -d /tmp/agent-smoke.XXXXXX)"
+python3 -c 'import shutil, sys; shutil.copytree(".", sys.argv[1], symlinks=True, dirs_exist_ok=True, ignore=shutil.ignore_patterns(".git", ".evidence", ".venv", ".superpowers", "__pycache__", ".env", ".env.*", "*.pem", "*.key"))' "$SMOKE_DIR"
+cd "$SMOKE_DIR"
+Q='Answer from your loaded context only; do not call any tool. Line 1: "AGENTS=yes" if your context contains a document headed "Repository Agent Instructions", else "AGENTS=no". Line 2: "GITHUB_RULE=yes" if it says to use agent-git for local Git, agent-gh for remote GitHub, and make the bot push last, else "GITHUB_RULE=no". Line 3: "SKILLS=" followed by the project skills listed as available to you.'
 claude -p "$Q" --disallowedTools "Read,Bash,Grep,Glob,Edit,Write,Agent"
-codex exec --sandbox read-only "$Q" < /dev/null
+codex exec --skip-git-repo-check --sandbox read-only "$Q" < /dev/null
 ```
 
 For Claude Code, keep the `Skill` tool allowed; some hosts do not list skills when it is disallowed. Repeat the Claude command with a shadowing `CLAUDE.md` to confirm the negative case. For Codex, close stdin as shown, or `codex exec` waits for more input. Check that the repository's skills are not also installed at user level, so the result shows repository discovery. Then add a row to the results table. Run the procedure again whenever a change touches `AGENTS.md`, a skill or the guard, and after a harness upgrade when an agent seems to have stopped following the repository rules.
