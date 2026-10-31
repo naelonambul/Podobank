@@ -93,6 +93,11 @@ CREATE TABLE IF NOT EXISTS catalog_refresh_state (
     last_error VARCHAR(500) NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+CREATE TABLE IF NOT EXISTS event_sequence_state (
+    singleton_id TINYINT UNSIGNED NOT NULL PRIMARY KEY,
+    last_sequence BIGINT UNSIGNED NOT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 CREATE TABLE IF NOT EXISTS domain_events (
     sequence BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
     event_id CHAR(36) NOT NULL,

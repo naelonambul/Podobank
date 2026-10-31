@@ -52,6 +52,7 @@ def test_schema_initialization_creates_required_tables(database_url: str) -> Non
             "idempotency_records",
             "loan_product_snapshots",
             "domain_events",
+            "event_sequence_state",
             "catalog_refresh_state",
             "telemetry_outbox",
         } <= tables
