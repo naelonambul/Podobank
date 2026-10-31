@@ -15,10 +15,10 @@
   "approvals": [
     {
       "artifact": "intent.md",
-      "sha256": "sha256:157c7abc8daec70741e2e1c1ec9a3b781b4a137f876489785545e387e257b07c",
+      "sha256": "sha256:eea7fc88dd3309f0561f62a5beb04be3fd9873d650d24f806937e7e7f8b617e1",
       "by": "naelonambul",
-      "at": "2026-10-31T02:57:14Z",
-      "note": "Owner approved the intent at the reviewed SHA-256."
+      "at": "2026-10-31T03:08:56Z",
+      "note": "Owner replied 'Proceed' after reviewing SHA-256 eea7fc88dd3309f0561f62a5beb04be3fd9873d650d24f806937e7e7f8b617e1."
     }
   ]
 }
