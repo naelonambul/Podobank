@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from datetime import UTC, datetime
+from typing import Any
 from uuid import NAMESPACE_URL, uuid5
 
 from sqlalchemy import text
@@ -18,7 +19,7 @@ def seed_sandbox(
     sandbox_id: str,
     customer_count: int,
     merchant_count: int,
-) -> dict[str, object]:
+) -> dict[str, Any]:
     namespace = uuid5(NAMESPACE_URL, f"podobank:{partner_id}:{sandbox_id}")
     correlation_id = str(uuid5(namespace, "seed-correlation"))
     customers: list[dict[str, str]] = []

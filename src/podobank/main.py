@@ -12,7 +12,7 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from podobank.config import Settings
 from podobank.db import Database
-from podobank.routes import events_router, sandbox_router
+from podobank.routes import accounts_router, events_router, sandbox_router, transfers_router
 
 
 def create_app(database_url: str, settings: Settings) -> FastAPI:
@@ -38,6 +38,8 @@ def create_app(database_url: str, settings: Settings) -> FastAPI:
     app.state.database = database
     app.state.settings = settings
     app.include_router(sandbox_router)
+    app.include_router(accounts_router)
+    app.include_router(transfers_router)
     app.include_router(events_router)
 
     @app.exception_handler(RequestValidationError)
@@ -58,12 +60,17 @@ def create_app(database_url: str, settings: Settings) -> FastAPI:
         if isinstance(detail, dict) and isinstance(detail.get("code"), str):
             code = detail["code"]
             message = str(detail.get("message", "The request could not be completed."))
+            error_body = {"code": code, "message": message}
+            error_body.update(
+                {key: value for key, value in detail.items() if key not in {"code", "message"}}
+            )
         else:
             code = {401: "unauthorized", 404: "not_found"}.get(error.status_code, "request_failed")
             message = str(detail)
+            error_body = {"code": code, "message": message}
         return JSONResponse(
             status_code=error.status_code,
-            content={"error": {"code": code, "message": message}},
+            content={"error": error_body},
             headers=error.headers,
         )
 

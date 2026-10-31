@@ -95,11 +95,18 @@ class AccountRepository:
         return Account(account_id, customer_id, balance_won, "KRW", created_at)
 
     def get(self, connection: Connection, account_id: str) -> Account | None:
+        return self._get(connection, account_id, for_update=False)
+
+    def get_for_update(self, connection: Connection, account_id: str) -> Account | None:
+        return self._get(connection, account_id, for_update=True)
+
+    def _get(self, connection: Connection, account_id: str, *, for_update: bool) -> Account | None:
+        lock_clause = " FOR UPDATE" if for_update else ""
         row = (
             connection.execute(
                 text(
                     "SELECT account_id, customer_id, balance_won, currency, created_at "
-                    "FROM accounts WHERE account_id = :account_id"
+                    f"FROM accounts WHERE account_id = :account_id{lock_clause}"
                 ),
                 {"account_id": account_id},
             )
@@ -327,6 +334,52 @@ class IdempotencyRepository:
                 "created_at": _to_database_time(created_at),
             },
         )
+
+    def reserve(
+        self,
+        connection: Connection,
+        *,
+        partner_id: str,
+        key: str,
+        request_hash: str,
+        created_at: datetime,
+    ) -> bool:
+        result = connection.execute(
+            text(
+                "INSERT IGNORE INTO idempotency_records "
+                "(partner_id, idempotency_key, request_hash, response_json, created_at) "
+                "VALUES (:partner_id, :idempotency_key, :request_hash, NULL, :created_at)"
+            ),
+            {
+                "partner_id": partner_id,
+                "idempotency_key": key,
+                "request_hash": request_hash,
+                "created_at": _to_database_time(created_at),
+            },
+        )
+        return result.rowcount == 1
+
+    def complete(
+        self,
+        connection: Connection,
+        *,
+        partner_id: str,
+        key: str,
+        response: Mapping[str, Any],
+    ) -> None:
+        result = connection.execute(
+            text(
+                "UPDATE idempotency_records SET response_json = :response_json "
+                "WHERE partner_id = :partner_id AND idempotency_key = :idempotency_key"
+            ),
+            {
+                "partner_id": partner_id,
+                "idempotency_key": key,
+                "response_json": json.dumps(response, separators=(",", ":"), sort_keys=True),
+            },
+        )
+        if result.rowcount != 1:
+            raise RuntimeError("idempotency reservation could not be completed")
 
 
 class Database:
