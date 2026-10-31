@@ -1,0 +1,26 @@
+{
+  "schema": 1,
+  "id": "github-app-workflow",
+  "kind": "repository",
+  "title": "Document GitHub App agent workflow",
+  "base": {
+    "ref": "main",
+    "commit": "e189f0b2bf70778ec20306e5e02d16b5f3ddb313"
+  },
+  "baseline": {},
+  "write_scope": [
+    "AGENTS.md",
+    "docs/host-setup.md",
+    ".agents/skills/sdlc-artifacts/SKILL.md",
+    "docs/agent-surfaces.md"
+  ],
+  "approvals": [
+    {
+      "artifact": "plan.md",
+      "sha256": "sha256:799d1a2d724585dbcb1b9dee70f528d2a6b2437ed65a6bb74143746faf6e50d9",
+      "by": "naelonambul",
+      "at": "2026-10-31T06:34:21Z",
+      "write_scope_sha256": "sha256:de8ffb985d24f4bcfc0fc0153d010594adf0ec800a914c923e31cf051c78114c"
+    }
+  ]
+}
