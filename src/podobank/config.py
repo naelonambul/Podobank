@@ -13,6 +13,9 @@ class Settings:
     partner_keys: dict[str, str] = field(default_factory=dict)
     event_log_path: str = "/var/log/podobank/events.ndjson"
     environment: str = "local"
+    catalog_refresh_enabled: bool = False
+    catalog_refresh_interval_seconds: int = 604800
+    catalog_source_ids: tuple[str, ...] = ("hana", "woori")
 
     @classmethod
     def from_environment(cls) -> Settings:
@@ -43,6 +46,32 @@ class Settings:
         ):
             raise ValueError("PODOBANK_PARTNER_KEYS must map non-empty partner IDs to keys")
 
+        refresh_enabled_raw = os.environ.get("PODOBANK_CATALOG_REFRESH_ENABLED", "true").lower()
+        if refresh_enabled_raw not in {"true", "false"}:
+            raise ValueError("PODOBANK_CATALOG_REFRESH_ENABLED must be true or false")
+        try:
+            refresh_interval = int(
+                os.environ.get("PODOBANK_CATALOG_REFRESH_INTERVAL_SECONDS", "604800")
+            )
+        except ValueError as error:
+            raise ValueError(
+                "PODOBANK_CATALOG_REFRESH_INTERVAL_SECONDS must be a positive integer"
+            ) from error
+        if refresh_interval < 1:
+            raise ValueError("PODOBANK_CATALOG_REFRESH_INTERVAL_SECONDS must be positive")
+        catalog_source_ids = tuple(
+            source.strip()
+            for source in os.environ.get("PODOBANK_CATALOG_SOURCE_IDS", "hana,woori").split(",")
+            if source.strip()
+        )
+        allowed_catalog_sources = {"hana", "woori"}
+        if (
+            not catalog_source_ids
+            or len(set(catalog_source_ids)) != len(catalog_source_ids)
+            or not set(catalog_source_ids).issubset(allowed_catalog_sources)
+        ):
+            raise ValueError("PODOBANK_CATALOG_SOURCE_IDS must list hana and/or woori once")
+
         return cls(
             database_url=database_url,
             partner_keys=partner_keys_value,
@@ -50,4 +79,7 @@ class Settings:
                 "PODOBANK_EVENT_LOG_PATH", "/var/log/podobank/events.ndjson"
             ),
             environment=os.environ.get("PODOBANK_ENVIRONMENT", "local"),
+            catalog_refresh_enabled=refresh_enabled_raw == "true",
+            catalog_refresh_interval_seconds=refresh_interval,
+            catalog_source_ids=catalog_source_ids,
         )

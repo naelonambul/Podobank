@@ -2,17 +2,32 @@
 
 from __future__ import annotations
 
-from collections.abc import AsyncIterator
+import asyncio
+import logging
+from collections.abc import AsyncIterator, Callable
 from contextlib import asynccontextmanager
+from datetime import UTC, datetime
+from uuid import uuid4
 
 from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
+from podobank.catalog_refresh import CatalogSource, refresh_catalog
 from podobank.config import Settings
 from podobank.db import Database
-from podobank.routes import accounts_router, events_router, sandbox_router, transfers_router
+from podobank.routes import (
+    accounts_router,
+    catalog_router,
+    events_router,
+    sandbox_router,
+    transfers_router,
+)
+from podobank.source_adapters.hana import HanaCatalogSource
+from podobank.source_adapters.woori import WooriCatalogSource
+
+logger = logging.getLogger(__name__)
 
 
 def create_app(database_url: str, settings: Settings) -> FastAPI:
@@ -21,7 +36,18 @@ def create_app(database_url: str, settings: Settings) -> FastAPI:
     @asynccontextmanager
     async def lifespan(_: FastAPI) -> AsyncIterator[None]:
         database.initialize_schema()
-        yield
+        refresh_task = None
+        refresh_stop = asyncio.Event()
+        if settings.catalog_refresh_enabled:
+            refresh_task = asyncio.create_task(
+                _refresh_catalog_periodically(database, settings, refresh_stop)
+            )
+        try:
+            yield
+        finally:
+            if refresh_task is not None:
+                refresh_stop.set()
+                await refresh_task
         database.dispose()
 
     app = FastAPI(
@@ -41,6 +67,7 @@ def create_app(database_url: str, settings: Settings) -> FastAPI:
     app.include_router(accounts_router)
     app.include_router(transfers_router)
     app.include_router(events_router)
+    app.include_router(catalog_router)
 
     @app.exception_handler(RequestValidationError)
     async def request_validation_error(_: Request, __: RequestValidationError) -> JSONResponse:
@@ -75,3 +102,34 @@ def create_app(database_url: str, settings: Settings) -> FastAPI:
         )
 
     return app
+
+
+async def _refresh_catalog_periodically(
+    database: Database, settings: Settings, stop_event: asyncio.Event
+) -> None:
+    source_factories: dict[str, Callable[[], CatalogSource]] = {
+        "hana": HanaCatalogSource,
+        "woori": WooriCatalogSource,
+    }
+    sources: list[CatalogSource] = [
+        source_factories[source_id]() for source_id in settings.catalog_source_ids
+    ]
+    while not stop_event.is_set():
+        try:
+            await asyncio.to_thread(
+                refresh_catalog,
+                database,
+                sources,
+                now=datetime.now(UTC),
+                lease_owner=f"api-{uuid4()}",
+            )
+        except Exception as error:
+            logger.error("Catalog refresh cycle failed: %s", type(error).__name__)
+        if stop_event.is_set():
+            return
+        try:
+            await asyncio.wait_for(
+                stop_event.wait(), timeout=settings.catalog_refresh_interval_seconds
+            )
+        except TimeoutError:
+            continue

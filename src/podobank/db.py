@@ -251,6 +251,8 @@ class EventRepository:
 
 
 class CatalogSnapshotRepository:
+    _writer_lock_id = "__snapshot_writer__"
+
     def save(
         self,
         connection: Connection,
@@ -265,6 +267,7 @@ class CatalogSnapshotRepository:
         retrieved_at: datetime,
         effective_date: date | None,
         source_status: str,
+        created_at: datetime | None = None,
     ) -> None:
         connection.execute(
             text(
@@ -286,7 +289,225 @@ class CatalogSnapshotRepository:
                 "retrieved_at": _to_database_time(retrieved_at),
                 "effective_date": effective_date,
                 "source_status": source_status,
-                "created_at": _to_database_time(retrieved_at),
+                "created_at": _to_database_time(created_at or retrieved_at),
+            },
+        )
+
+    def acquire_writer_lock(self, connection: Connection) -> None:
+        connection.execute(
+            text(
+                "INSERT IGNORE INTO catalog_refresh_state (institution_id) VALUES (:institution_id)"
+            ),
+            {"institution_id": self._writer_lock_id},
+        )
+        connection.execute(
+            text(
+                "SELECT institution_id FROM catalog_refresh_state "
+                "WHERE institution_id = :institution_id FOR UPDATE"
+            ),
+            {"institution_id": self._writer_lock_id},
+        ).scalar_one()
+
+    def latest_created_at(self, connection: Connection) -> datetime | None:
+        value = connection.execute(
+            text("SELECT MAX(created_at) FROM loan_product_snapshots")
+        ).scalar_one_or_none()
+        return _from_database_time(value) if value is not None else None
+
+    def latest_for_institution(
+        self, connection: Connection, institution_name: str
+    ) -> list[dict[str, Any]]:
+        rows = connection.execute(
+            text(
+                "WITH ranked AS ("
+                "SELECT snapshot_id, product_ref, institution_name, product_name, "
+                "product_category, facts_json, source_url, retrieved_at, effective_date, "
+                "source_status, created_at, ROW_NUMBER() OVER ("
+                "PARTITION BY product_ref ORDER BY created_at DESC, snapshot_id DESC) "
+                "AS snapshot_rank "
+                "FROM loan_product_snapshots WHERE institution_name = :institution_name) "
+                "SELECT snapshot_id, product_ref, institution_name, product_name, "
+                "product_category, "
+                "facts_json, source_url, retrieved_at, effective_date, source_status, created_at "
+                "FROM ranked WHERE snapshot_rank = 1"
+            ),
+            {"institution_name": institution_name},
+        ).mappings()
+        return [self._snapshot_row(row) for row in rows]
+
+    def list_page(
+        self,
+        connection: Connection,
+        *,
+        high_water_created_at: datetime,
+        after_created_at: datetime | None,
+        after_snapshot_id: str | None,
+        limit: int,
+        product_ref: str | None,
+        institution_name: str | None,
+        include_history: bool,
+    ) -> list[dict[str, Any]]:
+        if include_history:
+            source = (
+                "SELECT snapshot_id, product_ref, institution_name, product_name, "
+                "product_category, facts_json, source_url, retrieved_at, effective_date, "
+                "source_status, created_at FROM loan_product_snapshots "
+                "WHERE created_at <= :high_water_created_at"
+            )
+        else:
+            source = (
+                "WITH ranked AS ("
+                "SELECT snapshot_id, product_ref, institution_name, product_name, "
+                "product_category, facts_json, source_url, retrieved_at, effective_date, "
+                "source_status, created_at, ROW_NUMBER() OVER ("
+                "PARTITION BY product_ref ORDER BY created_at DESC, snapshot_id DESC) "
+                "AS snapshot_rank "
+                "FROM loan_product_snapshots WHERE created_at <= :high_water_created_at) "
+                "SELECT snapshot_id, product_ref, institution_name, product_name, "
+                "product_category, facts_json, source_url, retrieved_at, effective_date, "
+                "source_status, created_at FROM ranked WHERE snapshot_rank = 1 "
+                "AND source_status = 'active'"
+            )
+        rows = connection.execute(
+            text(
+                source
+                + " AND (:product_ref IS NULL OR product_ref = :product_ref) "
+                + "AND (:institution_name IS NULL OR institution_name = :institution_name) "
+                + "AND (:after_created_at IS NULL OR created_at > :after_created_at "
+                + "OR (created_at = :after_created_at AND snapshot_id > :after_snapshot_id)) "
+                + "ORDER BY created_at ASC, snapshot_id ASC LIMIT :limit"
+            ),
+            {
+                "high_water_created_at": _to_database_time(high_water_created_at),
+                "after_created_at": (
+                    _to_database_time(after_created_at) if after_created_at is not None else None
+                ),
+                "after_snapshot_id": after_snapshot_id,
+                "limit": limit,
+                "product_ref": product_ref,
+                "institution_name": institution_name,
+            },
+        ).mappings()
+        return [self._snapshot_row(row) for row in rows]
+
+    def list_for_product(self, connection: Connection, product_ref: str) -> list[dict[str, Any]]:
+        rows = connection.execute(
+            text(
+                "SELECT snapshot_id, product_ref, institution_name, product_name, "
+                "product_category, facts_json, source_url, retrieved_at, effective_date, "
+                "source_status, created_at FROM loan_product_snapshots "
+                "WHERE product_ref = :product_ref ORDER BY created_at ASC, snapshot_id ASC"
+            ),
+            {"product_ref": product_ref},
+        ).mappings()
+        return [self._snapshot_row(row) for row in rows]
+
+    @staticmethod
+    def _snapshot_row(row: Any) -> dict[str, Any]:
+        facts = row["facts_json"]
+        return {
+            "snapshot_id": str(row["snapshot_id"]),
+            "product_ref": str(row["product_ref"]),
+            "institution_name": str(row["institution_name"]),
+            "product_name": str(row["product_name"]),
+            "product_category": str(row["product_category"]),
+            "facts": json.loads(facts) if isinstance(facts, str) else facts,
+            "source_url": str(row["source_url"]),
+            "retrieved_at": _from_database_time(row["retrieved_at"]),
+            "effective_date": row["effective_date"],
+            "source_status": str(row["source_status"]),
+            "created_at": _from_database_time(row["created_at"]),
+        }
+
+
+class CatalogRefreshStateRepository:
+    def acquire(
+        self,
+        connection: Connection,
+        *,
+        institution_id: str,
+        owner: str,
+        now: datetime,
+        expires_at: datetime,
+    ) -> bool:
+        connection.execute(
+            text(
+                "INSERT IGNORE INTO catalog_refresh_state (institution_id) VALUES (:institution_id)"
+            ),
+            {"institution_id": institution_id},
+        )
+        row = (
+            connection.execute(
+                text(
+                    "SELECT lease_expires_at FROM catalog_refresh_state "
+                    "WHERE institution_id = :institution_id FOR UPDATE"
+                ),
+                {"institution_id": institution_id},
+            )
+            .mappings()
+            .one()
+        )
+        expires = row["lease_expires_at"]
+        if expires is not None and _from_database_time(expires) > now.astimezone(UTC):
+            return False
+        connection.execute(
+            text(
+                "UPDATE catalog_refresh_state SET lease_owner = :owner, "
+                "lease_expires_at = :expires_at, last_started_at = :now "
+                "WHERE institution_id = :institution_id"
+            ),
+            {
+                "institution_id": institution_id,
+                "owner": owner,
+                "expires_at": _to_database_time(expires_at),
+                "now": _to_database_time(now),
+            },
+        )
+        return True
+
+    def health(self, connection: Connection, institution_id: str) -> dict[str, Any] | None:
+        row = (
+            connection.execute(
+                text(
+                    "SELECT last_completed_at, last_error FROM catalog_refresh_state "
+                    "WHERE institution_id = :institution_id"
+                ),
+                {"institution_id": institution_id},
+            )
+            .mappings()
+            .first()
+        )
+        if row is None:
+            return None
+        return {
+            "last_completed_at": (
+                _from_database_time(row["last_completed_at"])
+                if row["last_completed_at"] is not None
+                else None
+            ),
+            "last_error": row["last_error"],
+        }
+
+    def complete(
+        self,
+        connection: Connection,
+        *,
+        institution_id: str,
+        owner: str,
+        completed_at: datetime,
+        error: str | None,
+    ) -> None:
+        connection.execute(
+            text(
+                "UPDATE catalog_refresh_state SET lease_owner = NULL, lease_expires_at = NULL, "
+                "last_completed_at = :completed_at, last_error = :error "
+                "WHERE institution_id = :institution_id AND lease_owner = :owner"
+            ),
+            {
+                "institution_id": institution_id,
+                "owner": owner,
+                "completed_at": _to_database_time(completed_at),
+                "error": error,
             },
         )
 
@@ -394,6 +615,7 @@ class Database:
         self.accounts = AccountRepository()
         self.events = EventRepository()
         self.catalog_snapshots = CatalogSnapshotRepository()
+        self.catalog_refresh_state = CatalogRefreshStateRepository()
         self.idempotency = IdempotencyRepository()
 
     def initialize_schema(self) -> None:
