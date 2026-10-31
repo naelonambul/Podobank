@@ -19,6 +19,13 @@
       "by": "naelonambul",
       "at": "2026-10-31T03:08:56Z",
       "note": "Owner replied 'Proceed' after reviewing SHA-256 eea7fc88dd3309f0561f62a5beb04be3fd9873d650d24f806937e7e7f8b617e1."
+    },
+    {
+      "artifact": "spec.md",
+      "sha256": "sha256:4c03604089e7208e920fef95e60658fe35fdfd087522b5311f62106c0e001ebe",
+      "by": "naelonambul",
+      "at": "2026-10-31T03:11:08Z",
+      "note": "Owner approved spec SHA-256 4c03604089e7208e920fef95e60658fe35fdfd087522b5311f62106c0e001ebe."
     }
   ]
 }
