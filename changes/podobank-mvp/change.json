@@ -1,0 +1,24 @@
+{
+  "schema": 1,
+  "id": "podobank-mvp",
+  "kind": "product-init",
+  "title": "Initialize the Podobank event-producing bank simulator",
+  "base": {
+    "ref": "main",
+    "commit": "e189f0b2bf70778ec20306e5e02d16b5f3ddb313"
+  },
+  "baseline": {},
+  "write_scope": [
+    "intent.md",
+    "spec.md"
+  ],
+  "approvals": [
+    {
+      "artifact": "intent.md",
+      "sha256": "sha256:157c7abc8daec70741e2e1c1ec9a3b781b4a137f876489785545e387e257b07c",
+      "by": "naelonambul",
+      "at": "2026-10-31T02:57:14Z",
+      "note": "Owner approved the intent at the reviewed SHA-256."
+    }
+  ]
+}
