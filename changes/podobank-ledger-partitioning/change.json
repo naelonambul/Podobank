@@ -1,0 +1,34 @@
+{
+  "schema": 1,
+  "id": "podobank-ledger-partitioning",
+  "kind": "behavior",
+  "title": "Define a date-partitioned ledger without database foreign keys",
+  "base": {
+    "ref": "main",
+    "commit": "b1197eebb82df00a24c43c545f4fd60fba979461"
+  },
+  "baseline": {
+    "intent.md": "sha256:713e23285d0340754f840512430a1c1de8dc67bca3018c9bb320a9725d33d420",
+    "spec.md": "sha256:56f1b7410dead215a50f11138df089c389dcedc85eda3123c75863586584d628"
+  },
+  "write_scope": [
+    "spec.md"
+  ],
+  "approvals": [
+    {
+      "artifact": "spec.md",
+      "sha256": "sha256:72d755624c917727f3f33d3de6c3a5e061a744802dd0090d5ed62ac09b2fe963",
+      "by": "ckh",
+      "at": "2026-11-01T16:48:12Z",
+      "note": "\uc218\uc815\ubcf8 \uc2b9\uc778"
+    },
+    {
+      "artifact": "plan.md",
+      "sha256": "sha256:441598f9c8f6b1a1e474c6a55e278ba9826a7f2f490c26c9f8cec2c7ac733728",
+      "by": "ckh",
+      "at": "2026-11-01T16:48:50Z",
+      "write_scope_sha256": "sha256:62c90a57ee64f0da65d1e24bbdb1beefb5d8237bed24d6c62639a4cd2592a58c",
+      "note": "\uc218\uc815 \uacc4\ud68d \uc2b9\uc778"
+    }
+  ]
+}
