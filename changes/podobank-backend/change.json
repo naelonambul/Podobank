@@ -1,7 +1,7 @@
 {
   "schema": 1,
   "id": "podobank-backend",
-  "kind": "implementation",
+  "kind": "behavior",
   "title": "Implement PodoBank backend",
   "base": {
     "ref": "main",
@@ -13,6 +13,8 @@
   },
   "write_scope": [
     "backend/**",
+    "spec.md",
+    "uv.lock",
     "compose.yaml",
     "Dockerfile",
     ".dockerignore",
@@ -25,12 +27,19 @@
   ],
   "approvals": [
     {
-      "artifact": "plan.md",
-      "sha256": "sha256:a7c99111bd310665a88744f0e8f5419db89239ee2646357c0182a7581a50a999",
+      "artifact": "spec.md",
+      "sha256": "sha256:1627b43c000da6c3dc0333cb8e88ff3737640a60fe6cb2b4b53ee72579e7f381",
       "by": "naelonambul",
-      "at": "2026-11-01T03:31:03Z",
-      "write_scope_sha256": "sha256:aa108fc903f8383c0f6c506aa9ed854aa0c0355d35516994b0f74894a4951685",
-      "note": "Owner approved the latest backend plan and asked to proceed."
+      "at": "2026-11-01T04:51:01Z",
+      "note": "Owner approved the revised authentication specification."
+    },
+    {
+      "artifact": "plan.md",
+      "sha256": "sha256:f9692189a11a374a6a0b3a24c3fe0005221c6421a3cbab568c59ba8da04e4133",
+      "by": "naelonambul",
+      "at": "2026-11-01T04:51:01Z",
+      "write_scope_sha256": "sha256:a4d3790fe22a2131738ef7022721de5b3984efb9d7e9aa1748e06ffb35fd5384",
+      "note": "Owner approved the revised backend plan and write scope."
     }
   ]
 }
