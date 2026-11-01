@@ -1,11 +1,11 @@
 services:
   db:
     image: mariadb:11.8.9
+    env_file:
+      - .env
     environment:
       MARIADB_DATABASE: ${MARIADB_DATABASE:-podobank_dev}
       MARIADB_USER: ${MARIADB_USER:-podobank}
-      MARIADB_PASSWORD: ${MARIADB_PASSWORD:?Set MARIADB_PASSWORD in the local .env file}
-      MARIADB_ROOT_PASSWORD: ${MARIADB_ROOT_PASSWORD:?Set MARIADB_ROOT_PASSWORD in the local .env file}
     ports:
       - "127.0.0.1:${DB_PORT:-3306}:3306"
     volumes:
