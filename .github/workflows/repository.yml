@@ -92,6 +92,7 @@ jobs:
     services:
       mariadb:
         image: mariadb:11.8.9
+        command: --sql-mode=ORACLE,STRICT_TRANS_TABLES,ERROR_FOR_DIVISION_BY_ZERO,NO_ENGINE_SUBSTITUTION
         env:
           MARIADB_DATABASE: podobank_test
           MARIADB_USER: podobank
