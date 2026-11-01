@@ -94,6 +94,16 @@ Claude results were supplied by the owner from the Mac, not measured on oracle. 
 
 The desktop app is **not verified**. Re-run the procedure below from a desktop session before claiming support. No other agent surface has been tested. Cursor is not a target.
 
+### PodoBank template-sync probes (2026-11-01, 33e5064)
+
+These are PodoBank observations, measured on the Mac on a scratch copy with the procedure below, after this sync's `AGENTS.md` and skill edits.
+
+| Surface | Version | Setup | Result |
+|---|---|---|---|
+| Claude Code CLI | 2.1.316 | scratch copy, no `CLAUDE.md`, stdin closed | `AGENTS=yes`, `GITHUB_RULE=yes`, 4/4 project skills |
+| Claude Code CLI | 2.1.316 | same copy with a shadowing `CLAUDE.md` | `AGENTS=no`, `GITHUB_RULE=no`, 4/4 project skills (expected negative instruction result) |
+| Codex CLI | 0.166.0 | same copy without the shadowing file, stdin closed, read-only sandbox | `AGENTS=yes`, `GITHUB_RULE=yes`, 4/4 project skills |
+
 ### Smoke-test procedure
 
 Run it against a scratch copy of the repository, never the working checkout. Create the local copy without invoking raw Git commands:

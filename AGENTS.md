@@ -27,10 +27,11 @@ Use the `sdlc-artifacts` skill whenever creating, revising, approving, or closin
 - Use repository-local skills from `.agents/skills/` when their trigger applies.
 - When the product stack becomes concrete, use the `repository-quality` skill to discover existing quality tooling or bootstrap a minimal stack-appropriate setup when it is missing.
 - Do not force-push, rewrite history, hard-reset shared work, or delete unrelated changes unless explicitly instructed.
+- Do not delete, overwrite, regenerate, move, or change ignore rules for a file that existed before the current task until you have established its origin; follow "Pre-existing local files" in the `sdlc-artifacts` skill. An out-of-scope path is a status finding, not permission to remove or hide it.
 - Do not weaken tests, lint rules, type checks, security checks, or configuration merely to make validation pass.
 - Do not commit tool caches or generated analysis metadata.
 - Prefer repository-native commands and conventions over agent preferences.
-- Use `agent-git` for local Git operations and `agent-gh` for remote GitHub operations, from the repository directory without `-C`; see `docs/host-setup.md`. Commit as `mini26-agent[bot]` and make the bot's push last. Never substitute the owner's `git push` or `gh`; the owner approves and merges in the current stage.
+- Use `agent-git` for local Git operations and `agent-gh` for remote GitHub operations, from the repository directory without `-C`; see `docs/host-setup.md`. Commit as `mini26-agent[bot]` and make the bot's push last. Never substitute the owner's `git push` or `gh`, except the one workflow push in `docs/host-setup.md`; the owner approves and merges in the current stage.
 - If a required change touches `.github/workflows/**`, stop and notify the owner; the App token lacks the `workflows` permission.
 - When delegating implementation, follow the `change-execution` skill. The delegating agent stays responsible for the change: workers act only from a closed brief within `write_scope`, never approve, commit, merge or edit the packet, and their reports are accepted only after the delegating agent re-runs verification itself.
 - Keep agent-specific adapters thin. Put shared policy in this file, skills, or deterministic scripts instead of duplicating it per agent. Do not add a `CLAUDE.md` that replaces this file; see `docs/agent-surfaces.md`.
