@@ -2,7 +2,7 @@
   "schema": 1,
   "id": "podobank-backend",
   "kind": "behavior",
-  "title": "Implement PodoBank backend",
+  "title": "Establish PodoBank backend foundation and tooling",
   "base": {
     "ref": "main",
     "commit": "8ecbff61a6566739f4fdd490b801b09c00dcbcb9"
@@ -14,6 +14,7 @@
   "write_scope": [
     "backend/**",
     "spec.md",
+    ".codex/config.toml",
     "uv.lock",
     "compose.yaml",
     "Dockerfile",
@@ -35,11 +36,11 @@
     },
     {
       "artifact": "plan.md",
-      "sha256": "sha256:f9692189a11a374a6a0b3a24c3fe0005221c6421a3cbab568c59ba8da04e4133",
+      "sha256": "sha256:7c11b5847860d8d6300d9f8b35e8e350abfd5ec04a2e8569f0bcaca82f161093",
       "by": "naelonambul",
-      "at": "2026-11-01T04:51:01Z",
-      "write_scope_sha256": "sha256:a4d3790fe22a2131738ef7022721de5b3984efb9d7e9aa1748e06ffb35fd5384",
-      "note": "Owner approved the revised backend plan and write scope."
+      "at": "2026-11-01T05:26:23Z",
+      "write_scope_sha256": "sha256:334775f4ff990f8d5677152942f4c66e23b2a951ecfd84ee2b0b54ab344cfe0e",
+      "note": "Owner approved the revised setup plan including project-scoped Serena configuration."
     }
   ]
 }

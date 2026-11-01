@@ -5,6 +5,7 @@
 *.ipr
 *.iws
 .serena/
+.codex/
 .evidence/
 
 # Python and FastAPI development artifacts
