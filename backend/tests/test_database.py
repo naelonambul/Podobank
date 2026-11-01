@@ -18,6 +18,16 @@ from podobank_api.database import (
 )
 from podobank_api.seed import DEMO_ACCOUNT_NUMBER, DEMO_CUSTOMER_PHONE
 
+EXPECTED_SCHEMA_TABLES = {
+    "schema_meta",
+    "users",
+    "accounts",
+    "transaction_entries",
+    "loan_products",
+    "loans",
+    "loan_installments",
+}
+
 
 class DatabaseSetupTests(unittest.TestCase):
     def setUp(self) -> None:
@@ -34,14 +44,14 @@ class DatabaseSetupTests(unittest.TestCase):
         initialize_database(self.engine)
         initialize_database(self.engine)
 
-        self.assertEqual(set(inspect(self.engine).get_table_names()), {"users", "accounts"})
+        self.assertEqual(set(inspect(self.engine).get_table_names()), EXPECTED_SCHEMA_TABLES)
         with self.engine.connect() as connection:
             user_count = connection.exec_driver_sql("SELECT COUNT(*) FROM users").scalar_one()
             account_count = connection.exec_driver_sql("SELECT COUNT(*) FROM accounts").scalar_one()
             foreign_keys = connection.exec_driver_sql("PRAGMA foreign_keys").scalar_one()
 
-        self.assertEqual(user_count, 1)
-        self.assertEqual(account_count, 1)
+        self.assertEqual(user_count, 4)
+        self.assertEqual(account_count, 3)
         self.assertEqual(foreign_keys, 1)
 
     def test_reset_removes_all_existing_tables_and_reseeds(self) -> None:
@@ -51,11 +61,15 @@ class DatabaseSetupTests(unittest.TestCase):
 
         reset_database(self.engine, app_env="development")
 
-        self.assertEqual(set(inspect(self.engine).get_table_names()), {"users", "accounts"})
+        self.assertEqual(set(inspect(self.engine).get_table_names()), EXPECTED_SCHEMA_TABLES)
         with self.engine.connect() as connection:
-            phone = connection.exec_driver_sql("SELECT phone_number FROM users").scalar_one()
+            phone = connection.exec_driver_sql(
+                "SELECT phone_number FROM users WHERE phone_number = ?",
+                (DEMO_CUSTOMER_PHONE,),
+            ).scalar_one()
             account_number = connection.exec_driver_sql(
-                "SELECT account_number FROM accounts"
+                "SELECT account_number FROM accounts WHERE account_number = ?",
+                (DEMO_ACCOUNT_NUMBER,),
             ).scalar_one()
 
         self.assertEqual(phone, DEMO_CUSTOMER_PHONE)
@@ -92,7 +106,7 @@ class DatabaseSetupTests(unittest.TestCase):
 
         reset_database(self.engine, app_env="development")
 
-        self.assertEqual(set(inspect(self.engine).get_table_names()), {"users", "accounts"})
+        self.assertEqual(set(inspect(self.engine).get_table_names()), EXPECTED_SCHEMA_TABLES)
         self.assertEqual(inspect(self.engine).get_view_names(), [])
 
     def test_reset_rejects_non_development_environment(self) -> None:
@@ -139,7 +153,10 @@ class DatabaseCliTests(unittest.TestCase):
         engine = create_database_engine(self.database_url)
         try:
             with engine.connect() as connection:
-                phone = connection.exec_driver_sql("SELECT phone_number FROM users").scalar_one()
+                phone = connection.exec_driver_sql(
+                    "SELECT phone_number FROM users WHERE phone_number = ?",
+                    (DEMO_CUSTOMER_PHONE,),
+                ).scalar_one()
         finally:
             engine.dispose()
         self.assertEqual(phone, DEMO_CUSTOMER_PHONE)

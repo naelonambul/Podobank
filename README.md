@@ -11,9 +11,10 @@ cp .env.example .env
 docker compose up --build
 ```
 
-FastAPI는 `http://localhost:8000`에서 실행되고 `/health`가 상태를 반환합니다. SQLite 파일은 `podobank_data` 영속 볼륨에 저장됩니다. Compose는 개발용 SQLite를 사용하며 `reset-db` 명령으로 스키마와 샘플 데이터를 다시 만들 수 있습니다.
+FastAPI는 `http://localhost:8000`에서 실행되고 `/health`가 상태를 반환합니다. 상환 작업자도 같은 이미지와 SQLite 영속 볼륨으로 실행됩니다. Compose는 개발용 SQLite를 사용하며 `reset-db` 명령으로 스키마와 샘플 데이터를 다시 만들 수 있습니다. `.env`의 직원 데모 비밀번호는 첫 DB 생성 시 해시되어 저장됩니다.
 
 Compose DB를 비우고 스키마만 다시 만들려면 `docker compose run --rm api podobank-api reset-db --no-seed`를 실행합니다.
+DB를 새 스키마와 샘플 데이터로 다시 만들려면 `docker compose run --rm api podobank-api reset-db`를 실행합니다.
 
 ### 로컬 Python 환경
 
@@ -21,6 +22,9 @@ Compose DB를 비우고 스키마만 다시 만들려면 `docker compose run --r
 python3 -m venv .venv
 . .venv/bin/activate
 python -m pip install -e ".[dev]"
+set -a
+. ./.env
+set +a
 podobank-api init-db
 uvicorn podobank_api.app:app --reload
 ```
@@ -31,7 +35,7 @@ uvicorn podobank_api.app:app --reload
 
 ```sh
 python3 scripts/verify_backend.py --suite sqlite
-python3 scripts/repo.py verify --change podobank-backend --full
+python3 scripts/repo.py verify --change podobank-backend-implementation --full
 ```
 
 백엔드 검증 스크립트는 프로젝트가 선언한 도구를 임시 Python 가상환경에 설치한 뒤 Ruff lint, Ruff format 검사와 SQLite 단위 테스트를 실행합니다.

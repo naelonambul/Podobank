@@ -1,4 +1,5 @@
 import argparse
+import os
 import sys
 from collections.abc import Sequence
 
@@ -9,13 +10,14 @@ from podobank_api.database import (
     reset_database,
     validate_reset_target,
 )
-from podobank_api.settings import Settings
+from podobank_api.settings import DEFAULT_DATABASE_URL, Settings
 
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="podobank-api")
     commands = parser.add_subparsers(dest="command", required=True)
     commands.add_parser("init-db", help="create the SQLite schema and default sample data")
+    commands.add_parser("run-repayment-worker", help="process scheduled loan repayments")
 
     reset_parser = commands.add_parser(
         "reset-db",
@@ -34,7 +36,16 @@ def main(argv: Sequence[str] | None = None) -> int:
     arguments = parser.parse_args(argv)
 
     try:
+        if arguments.command == "reset-db":
+            app_env = os.environ.get("APP_ENV", "development").strip().lower()
+            database_url = os.environ.get("DATABASE_URL", DEFAULT_DATABASE_URL).strip()
+            validate_reset_target(app_env, database_url)
         settings = Settings.from_environment()
+        if arguments.command == "run-repayment-worker":
+            from podobank_api.features.loans.worker import main as worker_main
+
+            worker_main()
+            return 0
         if arguments.command == "reset-db":
             validate_reset_target(settings.app_env, settings.database_url)
 
@@ -45,9 +56,15 @@ def main(argv: Sequence[str] | None = None) -> int:
                     engine,
                     app_env=settings.app_env,
                     include_seed=not arguments.no_seed,
+                    staff_initial_phone=settings.staff_initial_phone,
+                    staff_initial_password=settings.staff_initial_password,
                 )
             else:
-                initialize_database(engine)
+                initialize_database(
+                    engine,
+                    staff_initial_phone=settings.staff_initial_phone,
+                    staff_initial_password=settings.staff_initial_password,
+                )
         finally:
             engine.dispose()
     except (DatabaseSafetyError, ValueError) as error:

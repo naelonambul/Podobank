@@ -1,15 +1,20 @@
 from pathlib import Path
 
+from fastapi import Request
 from sqlalchemy import create_engine, event
 from sqlalchemy.engine import Connection, Engine
 from sqlalchemy.engine.url import make_url
 
-from podobank_api.schema import create_schema
+from podobank_api.schema import SCHEMA_VERSION, create_schema
 from podobank_api.seed import seed_default_data
 
 
 class DatabaseSafetyError(RuntimeError):
     """Raised when a database operation is unsafe for the selected environment."""
+
+
+def get_engine(request: Request) -> Engine:
+    return request.app.state.engine
 
 
 def database_backend(database_url: str) -> str:
@@ -43,7 +48,13 @@ def create_database_engine(database_url: str) -> Engine:
     return engine
 
 
-def initialize_database(engine: Engine, *, include_seed: bool = True) -> None:
+def initialize_database(
+    engine: Engine,
+    *,
+    include_seed: bool = True,
+    staff_initial_phone: str = "01099990000",
+    staff_initial_password: str = "",
+) -> None:
     if engine.dialect.name != "sqlite":
         raise DatabaseSafetyError("this backend setup currently supports SQLite only")
 
@@ -51,9 +62,26 @@ def initialize_database(engine: Engine, *, include_seed: bool = True) -> None:
         existing_table_count = connection.exec_driver_sql(
             "SELECT COUNT(*) FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%'"
         ).scalar_one()
+        if existing_table_count:
+            has_meta = connection.exec_driver_sql(
+                "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'schema_meta'"
+            ).first()
+            if not has_meta:
+                raise DatabaseSafetyError("SQLite schema is outdated; run reset-db in development")
+            schema_version = connection.exec_driver_sql(
+                "SELECT version FROM schema_meta WHERE id = 1"
+            ).scalar_one_or_none()
+            if schema_version != SCHEMA_VERSION:
+                raise DatabaseSafetyError(
+                    "SQLite schema version changed; run reset-db in development"
+                )
         create_schema(connection)
         if include_seed and existing_table_count == 0:
-            seed_default_data(connection)
+            seed_default_data(
+                connection,
+                staff_initial_phone=staff_initial_phone,
+                staff_initial_password=staff_initial_password,
+            )
 
 
 def reset_database(
@@ -61,6 +89,8 @@ def reset_database(
     *,
     app_env: str,
     include_seed: bool = True,
+    staff_initial_phone: str = "01099990000",
+    staff_initial_password: str = "",
 ) -> None:
     validate_reset_target(app_env, str(engine.url))
     connection: Connection
@@ -84,7 +114,11 @@ def reset_database(
 
                 create_schema(connection)
                 if include_seed:
-                    seed_default_data(connection)
+                    seed_default_data(
+                        connection,
+                        staff_initial_phone=staff_initial_phone,
+                        staff_initial_password=staff_initial_password,
+                    )
         finally:
             if connection.in_transaction():
                 connection.rollback()

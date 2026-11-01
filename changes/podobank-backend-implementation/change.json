@@ -1,0 +1,33 @@
+{
+  "schema": 1,
+  "id": "podobank-backend-implementation",
+  "kind": "implementation",
+  "title": "Implement PodoBank authentication and financial APIs",
+  "base": {
+    "ref": "main",
+    "commit": "69635d2eaf0aff98488bbef03f5273ef8f6701e0"
+  },
+  "baseline": {
+    "intent.md": "sha256:1c52f785b442a84d8da31f9fc381f316aab81421071cbe210634a94b34f37d5c",
+    "spec.md": "sha256:1627b43c000da6c3dc0333cb8e88ff3737640a60fe6cb2b4b53ee72579e7f381"
+  },
+  "write_scope": [
+    "backend/**",
+    "compose.yaml",
+    "pyproject.toml",
+    "uv.lock",
+    ".env.example",
+    "README.md",
+    "scripts/verify_backend.py"
+  ],
+  "approvals": [
+    {
+      "artifact": "plan.md",
+      "sha256": "sha256:a6d4298c09f0242f4b2841deb60e1a0dd5418962c2623b1eb01e9651e07f728d",
+      "by": "naelonambul",
+      "at": "2026-11-01T06:00:59Z",
+      "write_scope_sha256": "sha256:1e548f9e03b1cc928b830eea0187d777347a1036b924948c952af9e16d37c536",
+      "note": "\uc5c5\ub370\uc774\ud2b8\ub41c plan\uc744 \uc2b9\uc778\ud558\uace0 \ubc31\uc5d4\ub4dc \uad6c\ud604\uc744 \uc9c4\ud589"
+    }
+  ]
+}
