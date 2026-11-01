@@ -1,0 +1,33 @@
+{
+  "schema": 1,
+  "id": "podobank-money-movement",
+  "kind": "implementation",
+  "title": "Implement atomic account transactions and ledger",
+  "base": {
+    "ref": "main",
+    "commit": "c0fcf61f1a67276c57af6aaddaba680f59f415da"
+  },
+  "baseline": {
+    "intent.md": "sha256:713e23285d0340754f840512430a1c1de8dc67bca3018c9bb320a9725d33d420",
+    "spec.md": "sha256:72d755624c917727f3f33d3de6c3a5e061a744802dd0090d5ed62ac09b2fe963"
+  },
+  "write_scope": [
+    "backend/podobank_api/schema.py",
+    "backend/podobank_api/app.py",
+    "backend/podobank_api/features/accounts/**",
+    "backend/podobank_api/features/transactions/**",
+    "backend/tests/test_transactions.py",
+    "backend/tests/test_database.py",
+    "README.md"
+  ],
+  "approvals": [
+    {
+      "artifact": "plan.md",
+      "sha256": "sha256:d992944461d820641e9cef0c09e517787d5eb86371c8e0023c9d59ce2fbaa685",
+      "by": "ckh",
+      "at": "2026-11-01T21:44:55Z",
+      "write_scope_sha256": "sha256:1f97eb581b5167a57e4a46819840e0e6c5e96ccc20fe7f7b919382be7c88a9c0",
+      "note": "\uac70\ub798\u00b7\uc6d0\uc7a5 \uad6c\ud604 \uacc4\ud68d \uc2b9\uc778; \uc6d4\ubcc4 \ud30c\ud2f0\uc158 \uc120\ud0dd"
+    }
+  ]
+}
