@@ -13,11 +13,11 @@
     },
     {
       "id": "podobank-backend-quality",
-      "group": "core",
-      "argv": ["python3", "scripts/verify_backend.py", "--suite", "sqlite"],
+      "group": "mariadb",
+      "argv": ["python3", "scripts/verify_backend.py", "--suite", "mariadb"],
       "cwd": ".",
       "timeout_seconds": 600,
-      "paths": ["backend/**", "compose.yaml", "Dockerfile", ".dockerignore", ".env.example", ".gitignore", "pyproject.toml", "checks.json", "README.md", "scripts/verify_backend.py"],
+      "paths": ["backend/**", "compose.yaml", "Dockerfile", ".dockerignore", ".env.example", ".gitignore", "pyproject.toml", "uv.lock", "checks.json", "README.md", "scripts/verify_backend.py"],
       "requires": ["python3", "git"]
     }
   ]

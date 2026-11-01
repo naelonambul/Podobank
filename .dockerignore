@@ -47,10 +47,6 @@ out/
 .env.*
 !.env.example
 !.env.*.example
-/data/
-*.db
-*.sqlite
-*.sqlite3
 /mariadb-data/
 /mysql-data/
 /alloy-data/
