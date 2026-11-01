@@ -1,0 +1,24 @@
+{
+  "schema": 1,
+  "id": "ci-mariadb-oracle-sql-mode",
+  "kind": "repository",
+  "title": "Run CI MariaDB with Oracle SQL mode",
+  "base": {
+    "ref": "main",
+    "commit": "f338c6bb9e43274f6318f9a0a940e9f0a32c0cfb"
+  },
+  "baseline": {},
+  "write_scope": [
+    ".github/workflows/repository.yml"
+  ],
+  "approvals": [
+    {
+      "artifact": "plan.md",
+      "sha256": "sha256:842101eb5c65c5182997e801661f9ffbee09662cb0b45fcdc8a93e63558ca4a2",
+      "by": "naelonambul",
+      "at": "2026-11-01T13:47:42Z",
+      "write_scope_sha256": "sha256:9743e75102a738bcb1e1a47df8af52841a1681eb94267298aa21b40549313a14",
+      "note": "Owner approved the plan to add only ORACLE,STRICT_TRANS_TABLES,ERROR_FOR_DIVISION_BY_ZERO,NO_ENGINE_SUBSTITUTION as the MariaDB server SQL mode for jobs.verify-mariadb.services.mariadb."
+    }
+  ]
+}
