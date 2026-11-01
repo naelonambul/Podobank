@@ -15,6 +15,8 @@ docker compose up --build
 
 최초 실행은 다음 명령으로 스키마와 기본 시드 데이터를 준비합니다. 이 명령은 기존 테이블 구조와 데이터를 보존하며, 테이블 구조를 변경하지 않습니다. 개발 단계에서 스키마 정의가 달라지면 마이그레이션을 유지하지 않고 아래 `reset-db` 명령으로 `podobank_dev`를 비운 뒤 새 스키마를 생성합니다.
 
+대출 기능은 원장 테이블의 거래 유형 제약을 확장합니다. `CREATE TABLE IF NOT EXISTS`는 이미 생성된 원장 제약을 바꾸지 않으므로, 기존 개발 DB에는 승인된 초기화 명령을 명시적으로 실행해 새 스키마를 적용해야 합니다. 이 명령은 `podobank_dev` 데이터를 삭제하므로 필요한 데이터를 먼저 보존하세요. API 시작이나 `init-db`는 기존 DB를 자동 초기화하지 않습니다.
+
 ```sh
 docker compose exec api podobank-api init-db
 ```
@@ -30,6 +32,19 @@ docker compose exec api podobank-api init-db
 현재 고객 계좌의 원장 내역은 `GET /accounts/me/ledger`로 조회합니다. `start_at`, `end_at`은 UTC 오프셋을 포함한 ISO 8601 날짜 시각(예: `2026-11-01T00:00:00Z`)이며, 페이지 크기는 1~100, 오프셋은 0~10000입니다. 출금 원장 금액은 음수, 입금·수취 이체 금액은 양수입니다. 이체의 두 원장 행은 같은 `transaction_id`로 묶입니다.
 
 잔액 변경과 원장 쓰기는 MariaDB InnoDB 트랜잭션에서 함께 커밋됩니다. 월별 파티션은 현재 UTC 월부터 12개월을 미리 만들고 그 이후 시각은 catch-all 파티션에 저장합니다. 보존 기간이 승인되기 전에는 원장 파티션을 자동 삭제하지 않습니다. API 요청 재시도에 대한 멱등성 키는 아직 제공하지 않으므로, 응답을 받지 못한 요청을 다시 보내면 별도 거래로 처리될 수 있습니다.
+
+### 대출 API와 상환 실행
+
+고객은 `GET /loans/products`로 대출 상품을 확인하고 `POST /loans/applications`에 `{"product_id": 1}`을 보내 신청합니다. 상품의 원금과 기간은 서버의 상품 조건을 사용합니다. `GET /loans/me`는 본인의 신청과 회차별 상환 상태를 반환합니다. 은행 직원은 `GET /loans/pending`에서 심사 대상을 확인한 뒤 `POST /loans/{application_id}/approve` 또는 `/reject`로 처리합니다. 승인 시 원금 입금, 상환 일정 생성, 대출 상태 변경이 하나의 InnoDB 트랜잭션으로 처리됩니다.
+
+월 상환일은 승인일에서 한 달이 지난 뒤 처음 도래하는 UTC 월의 1일입니다. 이후 회차는 매월 1일입니다. 일일 상환 작업은 다음의 일회성 CLI를 호스트 스케줄러에서 UTC 기준으로 호출합니다. Compose API 컨테이너가 실행 중일 때의 cron 예시는 다음과 같습니다.
+
+```cron
+CRON_TZ=UTC
+15 0 * * * cd /path/to/Podobank && docker compose exec -T api podobank-api process-repayments
+```
+
+`podobank-api process-repayments --as-of-date YYYY-MM-DD`로 처리 기준일을 지정할 수 있습니다. 기본값은 현재 UTC 날짜입니다. 작업이 중단된 동안 예정된 회차는 오래된 날짜부터 처리하며, 잔액이 부족한 회차는 일부 인출 없이 연체로 기록합니다. 연체 회차는 고객이 `POST /loans/me/{application_id}/repayments`에 월 납입액의 정수 배를 보내 직접 상환합니다. 스케줄러에서 명령의 종료 코드를 확인하고, 실패 시 같은 기준일로 다시 호출할 수 있습니다.
 
 로컬 MariaDB의 전용 `podobank_test` 데이터베이스에서 API, 원자성, 동시성, 파티션 검증을 실행하려면 품질 검사 절차의 `DATABASE_URL`과 `APP_ENV=test`를 설정한 뒤 다음 명령을 실행합니다.
 

@@ -17,10 +17,18 @@ from podobank_api.database import (
     validate_reset_target,
 )
 from podobank_api.features.auth.passwords import verify_password
-from podobank_api.seed import DEMO_ACCOUNT_NUMBER, DEMO_CUSTOMER_PHONE
+from podobank_api.seed import DEMO_ACCOUNT_NUMBER, DEMO_CUSTOMER_PHONE, LOAN_PRODUCTS
 
 TEST_EMPLOYEE_PHONE = "01000000009"
 TEST_EMPLOYEE_PASSWORD = "test-employee-password"
+EXPECTED_TABLES = {
+    "users",
+    "accounts",
+    "ledger_entries",
+    "loan_products",
+    "loan_applications",
+    "loan_repayments",
+}
 
 
 class MariaDBSetupTests(unittest.TestCase):
@@ -54,7 +62,7 @@ class MariaDBSetupTests(unittest.TestCase):
 
         self.assertEqual(
             set(inspect(self.engine).get_table_names()),
-            {"users", "accounts", "ledger_entries"},
+            EXPECTED_TABLES,
         )
         with self.engine.connect() as connection:
             user_count = connection.execute(text("SELECT COUNT(*) FROM users")).scalar_one()
@@ -71,11 +79,32 @@ class MariaDBSetupTests(unittest.TestCase):
                 text("SELECT password_hash FROM users WHERE phone_number = :phone"),
                 {"phone": TEST_EMPLOYEE_PHONE},
             ).scalar_one()
+            products = connection.execute(
+                text(
+                    "SELECT code, name, principal_amount, term_months, monthly_installment "
+                    "FROM loan_products ORDER BY code"
+                )
+            ).all()
 
         self.assertEqual(user_count, 2)
         self.assertEqual(account_count, 1)
         self.assertEqual(phone, DEMO_CUSTOMER_PHONE)
         self.assertEqual(account_number, DEMO_ACCOUNT_NUMBER)
+        self.assertEqual(
+            products,
+            sorted(
+                [
+                    (
+                        product["code"],
+                        product["name"],
+                        product["principal_amount"],
+                        product["term_months"],
+                        product["monthly_installment"],
+                    )
+                    for product in LOAN_PRODUCTS
+                ]
+            ),
+        )
         self.assertTrue(employee_hash.startswith("$argon2id$"))
         self.assertTrue(verify_password(employee_hash, TEST_EMPLOYEE_PASSWORD))
 
@@ -150,7 +179,8 @@ class MariaDBSetupTests(unittest.TestCase):
                     text(
                         "SELECT table_name, engine FROM information_schema.tables "
                         "WHERE table_schema = DATABASE() AND table_name IN "
-                        "('accounts', 'ledger_entries')"
+                        "('accounts', 'ledger_entries', 'loan_products', "
+                        "'loan_applications', 'loan_repayments')"
                     )
                 ).all()
             )
@@ -172,31 +202,74 @@ class MariaDBSetupTests(unittest.TestCase):
                 )
             ).all()
 
-        self.assertEqual(engines, {"accounts": "InnoDB", "ledger_entries": "InnoDB"})
+        self.assertEqual(
+            engines,
+            {
+                "accounts": "InnoDB",
+                "ledger_entries": "InnoDB",
+                "loan_products": "InnoDB",
+                "loan_applications": "InnoDB",
+                "loan_repayments": "InnoDB",
+            },
+        )
         self.assertEqual(primary_key["constrained_columns"], ["entry_id", "posted_at"])
         self.assertEqual(
             indexes["ix_ledger_account_posted_entry"],
             ["account_id", "posted_at", "entry_id"],
         )
         self.assertEqual(foreign_key_columns, [])
+        self.assertEqual(inspect(self.engine).get_foreign_keys("loan_products"), [])
+        application_foreign_keys = {
+            tuple(foreign_key["constrained_columns"]): (
+                foreign_key["referred_table"],
+                tuple(foreign_key["referred_columns"]),
+            )
+            for foreign_key in inspect(self.engine).get_foreign_keys("loan_applications")
+        }
+        repayment_foreign_keys = {
+            tuple(foreign_key["constrained_columns"]): (
+                foreign_key["referred_table"],
+                tuple(foreign_key["referred_columns"]),
+            )
+            for foreign_key in inspect(self.engine).get_foreign_keys("loan_repayments")
+        }
+        self.assertEqual(
+            application_foreign_keys,
+            {
+                ("user_id",): ("users", ("id",)),
+                ("product_id",): ("loan_products", ("id",)),
+                ("reviewed_by",): ("users", ("id",)),
+            },
+        )
+        self.assertEqual(
+            repayment_foreign_keys,
+            {("loan_application_id",): ("loan_applications", ("id",))},
+        )
 
         with self.engine.begin() as connection:
-            connection.execute(
-                text(
-                    "INSERT INTO ledger_entries "
-                    "(posted_at, transaction_id, account_id, user_id, entry_type, amount) "
-                    "VALUES (:posted_at, :transaction_id, 999999, 999999, 'deposit', 1)"
-                ),
-                {
-                    "posted_at": datetime(2100, 1, 1),
-                    "transaction_id": "00000000-0000-4000-8000-000000000001",
-                },
-            )
+            for suffix, entry_type, amount in (
+                (1, "deposit", 1),
+                (2, "loan_disbursement", 1),
+                (3, "loan_repayment", -1),
+            ):
+                connection.execute(
+                    text(
+                        "INSERT INTO ledger_entries "
+                        "(posted_at, transaction_id, account_id, user_id, entry_type, amount) "
+                        "VALUES (:posted_at, :transaction_id, 999999, 999999, :entry_type, :amount)"
+                    ),
+                    {
+                        "posted_at": datetime(2100, 1, suffix),
+                        "transaction_id": f"00000000-0000-4000-8000-{suffix:012d}",
+                        "entry_type": entry_type,
+                        "amount": amount,
+                    },
+                )
         with self.engine.connect() as connection:
             future_count = connection.execute(
                 text("SELECT COUNT(*) FROM ledger_entries WHERE posted_at >= '2100-01-01'")
             ).scalar_one()
-        self.assertEqual(future_count, 1)
+        self.assertEqual(future_count, 3)
 
         now = datetime.now(UTC)
         current_month = datetime(now.year, now.month, 1)
@@ -230,7 +303,7 @@ class MariaDBSetupTests(unittest.TestCase):
 
         self.assertEqual(
             set(inspect(self.engine).get_table_names()),
-            {"users", "accounts", "ledger_entries"},
+            EXPECTED_TABLES,
         )
         self.assertEqual(inspect(self.engine).get_view_names(), [])
         with self.engine.connect() as connection:
@@ -251,10 +324,22 @@ class MariaDBSetupTests(unittest.TestCase):
             ledger_count = connection.execute(
                 text("SELECT COUNT(*) FROM ledger_entries")
             ).scalar_one()
+            product_count = connection.execute(
+                text("SELECT COUNT(*) FROM loan_products")
+            ).scalar_one()
+            application_count = connection.execute(
+                text("SELECT COUNT(*) FROM loan_applications")
+            ).scalar_one()
+            repayment_count = connection.execute(
+                text("SELECT COUNT(*) FROM loan_repayments")
+            ).scalar_one()
 
         self.assertEqual(user_count, 0)
         self.assertEqual(account_count, 0)
         self.assertEqual(ledger_count, 0)
+        self.assertEqual(product_count, 0)
+        self.assertEqual(application_count, 0)
+        self.assertEqual(repayment_count, 0)
 
     def test_reset_rejects_non_development_or_test_environment(self) -> None:
         with self.assertRaisesRegex(DatabaseSafetyError, "APP_ENV=development"):
