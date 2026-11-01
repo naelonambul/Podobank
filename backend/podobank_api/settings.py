@@ -63,7 +63,7 @@ class Settings:
     bank_employee_password: str
 
     @classmethod
-    def from_environment(cls, environ: Mapping[str, str] | None = None) -> Settings:
+    def from_environment(cls, environ: Mapping[str, str] | None = None) -> "Settings":
         values = os.environ if environ is None else environ
         app_env = values.get("APP_ENV", "development").strip().lower()
         database_url = values.get("DATABASE_URL", "").strip()

@@ -7,7 +7,7 @@ name = "podobank-api"
 version = "0.1.0"
 description = "FastAPI backend for the PodoBank portfolio project"
 readme = "README.md"
-requires-python = ">=3.15,<3.16"
+requires-python = ">=3.13,<3.14"
 dependencies = [
     "argon2-cffi>=23.1,<26.0",
     "fastapi>=0.115,<1.0",
@@ -32,7 +32,7 @@ where = ["backend"]
 include = ["podobank_api*"]
 
 [tool.ruff]
-target-version = "py315"
+target-version = "py313"
 line-length = 100
 src = ["backend"]
 

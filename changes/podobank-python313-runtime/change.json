@@ -1,0 +1,33 @@
+{
+  "schema": 1,
+  "id": "podobank-python313-runtime",
+  "kind": "implementation",
+  "title": "Pin API runtime to Python 3.13",
+  "base": {
+    "ref": "main",
+    "commit": "10b791b4f904ef63cdb325147d1e1db98b1aaf7c"
+  },
+  "baseline": {
+    "intent.md": "sha256:713e23285d0340754f840512430a1c1de8dc67bca3018c9bb320a9725d33d420",
+    "spec.md": "sha256:72d755624c917727f3f33d3de6c3a5e061a744802dd0090d5ed62ac09b2fe963"
+  },
+  "write_scope": [
+    "Dockerfile",
+    "pyproject.toml",
+    "uv.lock",
+    ".github/workflows/repository.yml",
+    "backend/podobank_api/settings.py",
+    "backend/podobank_api/features/auth/passwords.py",
+    "docs/stack-versions.md"
+  ],
+  "approvals": [
+    {
+      "artifact": "plan.md",
+      "sha256": "sha256:209ff144c3c451fc09685bf3da3eb1ea3d6bae7badb2a3b6dcaab043a2f86c3a",
+      "by": "ckh",
+      "at": "2026-11-01T21:01:12Z",
+      "write_scope_sha256": "sha256:e3d300a615b52e6c55706f52237c80edce3b9e10a2ca7e3834bce28973ea01b2",
+      "note": "Python 3.13 \uc804\ud658 \uacc4\ud68d \uc2b9\uc778"
+    }
+  ]
+}
