@@ -1,5 +1,5 @@
 # -----------------------------------------------------------------------------
-# OS / editor noise
+# OS / PyCharm editor state
 # -----------------------------------------------------------------------------
 .DS_Store
 .AppleDouble
@@ -11,6 +11,8 @@ Desktop.ini
 *.swo
 .idea/
 *.iml
+*.ipr
+*.iws
 
 # Keep editor/project configuration opt-in rather than ignoring all of .vscode/.
 
@@ -81,6 +83,22 @@ __pycache__/
 .nox/
 .venv/
 venv/
+.uv-cache/
+*.egg-info/
+*.dist-info/
+/data/
+*.db
+*.sqlite
+*.sqlite3
+
+# Local bind-mounted runtime data for the Docker Compose service stack.
+# Keep service configuration and provisioning files tracked.
+/mariadb-data/
+/mysql-data/
+/alloy-data/
+/loki-data/
+/prometheus-data/
+/grafana-data/
 
 # -----------------------------------------------------------------------------
 # Apple / Xcode / Swift

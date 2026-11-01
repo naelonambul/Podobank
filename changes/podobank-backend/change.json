@@ -1,0 +1,46 @@
+{
+  "schema": 1,
+  "id": "podobank-backend",
+  "kind": "behavior",
+  "title": "Establish PodoBank backend foundation and tooling",
+  "base": {
+    "ref": "main",
+    "commit": "8ecbff61a6566739f4fdd490b801b09c00dcbcb9"
+  },
+  "baseline": {
+    "intent.md": "sha256:1c52f785b442a84d8da31f9fc381f316aab81421071cbe210634a94b34f37d5c",
+    "spec.md": "sha256:940afaa73c12fc69cb657b2f2667d346ae50ba0d63fcd98f6b6e6de1143116a6"
+  },
+  "write_scope": [
+    "backend/**",
+    "spec.md",
+    ".codex/config.toml",
+    "uv.lock",
+    "compose.yaml",
+    "Dockerfile",
+    ".dockerignore",
+    ".env.example",
+    ".gitignore",
+    "pyproject.toml",
+    "checks.json",
+    "README.md",
+    "scripts/verify_backend.py"
+  ],
+  "approvals": [
+    {
+      "artifact": "spec.md",
+      "sha256": "sha256:1627b43c000da6c3dc0333cb8e88ff3737640a60fe6cb2b4b53ee72579e7f381",
+      "by": "naelonambul",
+      "at": "2026-11-01T04:51:01Z",
+      "note": "Owner approved the revised authentication specification."
+    },
+    {
+      "artifact": "plan.md",
+      "sha256": "sha256:7c11b5847860d8d6300d9f8b35e8e350abfd5ec04a2e8569f0bcaca82f161093",
+      "by": "naelonambul",
+      "at": "2026-11-01T05:26:23Z",
+      "write_scope_sha256": "sha256:334775f4ff990f8d5677152942f4c66e23b2a951ecfd84ee2b0b54ab344cfe0e",
+      "note": "Owner approved the revised setup plan including project-scoped Serena configuration."
+    }
+  ]
+}

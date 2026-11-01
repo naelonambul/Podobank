@@ -1,0 +1,65 @@
+# Version control, PyCharm, and agent-local metadata
+.git/
+.idea/
+*.iml
+*.ipr
+*.iws
+.serena/
+.codex/
+.evidence/
+
+# Python and FastAPI development artifacts
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.pyright/
+.ruff_cache/
+.tox/
+.nox/
+backend/tests/
+*.egg-info/
+*.dist-info/
+
+# Vue 3 / Node development artifacts
+node_modules/
+.npm/
+.pnpm-store/
+.yarn/cache/
+.yarn/unplugged/
+.yarn/build-state.yml
+.yarn/install-state.gz
+.vite/
+.parcel-cache/
+.turbo/
+.eslintcache
+.stylelintcache
+coverage/
+.nyc_output/
+dist/
+build/
+out/
+
+# Local secrets and runtime data; keep service configuration files
+.env
+.env.*
+!.env.example
+!.env.*.example
+/data/
+*.db
+*.sqlite
+*.sqlite3
+/mariadb-data/
+/mysql-data/
+/alloy-data/
+/loki-data/
+/prometheus-data/
+/grafana-data/
+
+# Runtime logs and temporary files
+*.log
+*.log.*
+*.tmp
+*.temp
