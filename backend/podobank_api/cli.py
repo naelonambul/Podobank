@@ -1,6 +1,9 @@
 import argparse
 import sys
 from collections.abc import Sequence
+from datetime import UTC, date, datetime
+
+from sqlalchemy.exc import DBAPIError
 
 from podobank_api.database import (
     DatabaseSafetyError,
@@ -9,6 +12,7 @@ from podobank_api.database import (
     reset_database,
     validate_reset_target,
 )
+from podobank_api.features.loans.service import LoanService
 from podobank_api.settings import Settings
 
 
@@ -26,7 +30,26 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="create the schema without inserting sample rows",
     )
+    repayments_parser = commands.add_parser(
+        "process-repayments",
+        help="process due loan installments once; schedule this command externally",
+    )
+    repayments_parser.add_argument(
+        "--as-of-date",
+        type=_parse_iso_date,
+        help="UTC processing date in YYYY-MM-DD format (defaults to today)",
+    )
     return parser
+
+
+def _parse_iso_date(value: str) -> date:
+    try:
+        parsed = date.fromisoformat(value)
+    except ValueError as error:
+        raise argparse.ArgumentTypeError("date must use YYYY-MM-DD format") from error
+    if parsed.isoformat() != value:
+        raise argparse.ArgumentTypeError("date must use YYYY-MM-DD format")
+    return parsed
 
 
 def main(argv: Sequence[str] | None = None) -> int:
@@ -35,6 +58,20 @@ def main(argv: Sequence[str] | None = None) -> int:
 
     try:
         settings = Settings.from_environment()
+        if arguments.command == "process-repayments":
+            engine = create_database_engine(settings.database_url)
+            try:
+                service = LoanService(engine)
+                as_of_date = arguments.as_of_date or datetime.now(UTC).date()
+                result = service.process_due_repayments(as_of_date=as_of_date)
+            finally:
+                engine.dispose()
+            print(
+                "Repayment processing completed: "
+                f"processed={result.processed} paid={result.paid} "
+                f"overdue={result.overdue} skipped={result.skipped}"
+            )
+            return 0
         if arguments.command == "reset-db":
             validate_reset_target(settings.app_env, settings.database_url)
             include_seed = not arguments.no_seed
@@ -63,8 +100,21 @@ def main(argv: Sequence[str] | None = None) -> int:
         finally:
             engine.dispose()
     except (DatabaseSafetyError, ValueError) as error:
+        if arguments.command == "process-repayments":
+            print("error: repayment processing failed", file=sys.stderr)
+            return 1
         print(f"error: {error}", file=sys.stderr)
         return 2
+    except DBAPIError:
+        if arguments.command == "process-repayments":
+            print("error: repayment processing failed", file=sys.stderr)
+            return 1
+        raise
+    except Exception:
+        if arguments.command == "process-repayments":
+            print("error: repayment processing failed", file=sys.stderr)
+            return 1
+        raise
 
     if arguments.command == "reset-db" and arguments.no_seed:
         print("MariaDB schema recreated without sample data.")

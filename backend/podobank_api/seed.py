@@ -5,6 +5,29 @@ from podobank_api.features.auth.passwords import hash_password
 
 DEMO_CUSTOMER_PHONE = "01000000001"
 DEMO_ACCOUNT_NUMBER = "100000000001"
+LOAN_PRODUCTS = (
+    {
+        "code": "car_purchase",
+        "name": "자동차 구매",
+        "principal_amount": 30_000_000,
+        "term_months": 60,
+        "monthly_installment": 500_000,
+    },
+    {
+        "code": "jeonse",
+        "name": "전세자금",
+        "principal_amount": 96_000_000,
+        "term_months": 24,
+        "monthly_installment": 4_000_000,
+    },
+    {
+        "code": "home_purchase",
+        "name": "주택 매매",
+        "principal_amount": 360_000_000,
+        "term_months": 360,
+        "monthly_installment": 1_000_000,
+    },
+)
 
 
 def seed_default_data(
@@ -90,3 +113,14 @@ def seed_default_data(
         ),
         {"owner_user_id": customer_id, "account_number": DEMO_ACCOUNT_NUMBER},
     )
+
+    for product in LOAN_PRODUCTS:
+        connection.execute(
+            text(
+                "INSERT INTO loan_products "
+                "(code, name, principal_amount, term_months, monthly_installment) "
+                "VALUES (:code, :name, :principal_amount, :term_months, :monthly_installment) "
+                "ON DUPLICATE KEY UPDATE id = LAST_INSERT_ID(id)"
+            ),
+            product,
+        )

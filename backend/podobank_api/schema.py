@@ -41,6 +41,82 @@ SCHEMA_STATEMENTS = (
             REFERENCES users (id) ON DELETE RESTRICT
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
     """,
+    """
+    CREATE TABLE IF NOT EXISTS loan_products (
+        id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+        code VARCHAR(32) NOT NULL,
+        name VARCHAR(120) NOT NULL,
+        principal_amount BIGINT NOT NULL,
+        term_months SMALLINT UNSIGNED NOT NULL,
+        monthly_installment BIGINT NOT NULL,
+        PRIMARY KEY (id),
+        CONSTRAINT uq_loan_products_code UNIQUE (code),
+        CONSTRAINT chk_loan_products_terms CHECK (
+            principal_amount > 0 AND term_months > 0 AND monthly_installment > 0
+            AND principal_amount = monthly_installment * term_months
+        )
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+    """,
+    """
+    CREATE TABLE IF NOT EXISTS loan_applications (
+        id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+        user_id BIGINT UNSIGNED NOT NULL,
+        product_id BIGINT UNSIGNED NOT NULL,
+        product_code VARCHAR(32) NOT NULL,
+        product_name VARCHAR(120) NOT NULL,
+        principal_amount BIGINT NOT NULL,
+        term_months SMALLINT UNSIGNED NOT NULL,
+        monthly_installment BIGINT NOT NULL,
+        status VARCHAR(16) NOT NULL DEFAULT 'pending',
+        created_at DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
+        reviewed_at DATETIME(6) NULL,
+        reviewed_by BIGINT UNSIGNED NULL,
+        approved_at DATETIME(6) NULL,
+        PRIMARY KEY (id),
+        KEY ix_loan_applications_user_status_id (user_id, status, id),
+        KEY ix_loan_applications_status_id (status, id),
+        CONSTRAINT chk_loan_applications_status CHECK (
+            status IN ('pending', 'repaying', 'rejected', 'repaid')
+        ),
+        CONSTRAINT chk_loan_applications_terms CHECK (
+            principal_amount > 0 AND term_months > 0 AND monthly_installment > 0
+            AND principal_amount = monthly_installment * term_months
+        ),
+        CONSTRAINT fk_loan_applications_user FOREIGN KEY (user_id)
+            REFERENCES users (id) ON DELETE RESTRICT,
+        CONSTRAINT fk_loan_applications_product FOREIGN KEY (product_id)
+            REFERENCES loan_products (id) ON DELETE RESTRICT,
+        CONSTRAINT fk_loan_applications_reviewer FOREIGN KEY (reviewed_by)
+            REFERENCES users (id) ON DELETE RESTRICT
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+    """,
+    """
+    CREATE TABLE IF NOT EXISTS loan_repayments (
+        id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+        loan_application_id BIGINT UNSIGNED NOT NULL,
+        installment_number SMALLINT UNSIGNED NOT NULL,
+        due_date DATE NOT NULL,
+        amount BIGINT NOT NULL,
+        status VARCHAR(16) NOT NULL DEFAULT 'scheduled',
+        created_at DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
+        processed_at DATETIME(6) NULL,
+        paid_at DATETIME(6) NULL,
+        PRIMARY KEY (id),
+        CONSTRAINT uq_loan_repayments_installment
+            UNIQUE (loan_application_id, installment_number),
+        KEY ix_loan_repayments_due_status (
+            status, due_date, loan_application_id, installment_number
+        ),
+        CONSTRAINT chk_loan_repayments_installment CHECK (
+            installment_number > 0 AND amount > 0
+        ),
+        CONSTRAINT chk_loan_repayments_status CHECK (
+            status IN ('scheduled', 'paid', 'overdue')
+        ),
+        CONSTRAINT fk_loan_repayments_application FOREIGN KEY (loan_application_id)
+            REFERENCES loan_applications (id) ON DELETE RESTRICT
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+    """,
 )
 
 
@@ -82,7 +158,10 @@ def ledger_schema_statement(now: datetime | None = None) -> str:
         KEY ix_ledger_account_posted_entry (account_id, posted_at, entry_id),
         KEY ix_ledger_transaction_posted_entry (transaction_id, posted_at, entry_id),
         CONSTRAINT chk_ledger_entry_type CHECK (
-            entry_type IN ('deposit', 'withdrawal', 'transfer_in', 'transfer_out')
+            entry_type IN (
+                'deposit', 'withdrawal', 'transfer_in', 'transfer_out',
+                'loan_disbursement', 'loan_repayment'
+            )
         ),
         CONSTRAINT chk_ledger_amount CHECK (amount <> 0)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci

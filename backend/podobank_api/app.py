@@ -13,6 +13,8 @@ from podobank_api.features.accounts.service import AccountService
 from podobank_api.features.auth.api import router as auth_router
 from podobank_api.features.auth.kakao import KakaoProvider
 from podobank_api.features.auth.service import AuthService
+from podobank_api.features.loans.api import router as loans_router
+from podobank_api.features.loans.service import LoanService
 from podobank_api.features.transactions.api import router as transactions_router
 from podobank_api.features.transactions.service import TransactionService
 from podobank_api.settings import Settings
@@ -55,6 +57,7 @@ def create_app(
     )
     application.state.account_service = AccountService(database_engine)
     application.state.transaction_service = TransactionService(database_engine)
+    application.state.loan_service = LoanService(database_engine)
     application.add_middleware(
         CORSMiddleware,
         allow_origins=list(app_settings.frontend_origins),
@@ -65,6 +68,7 @@ def create_app(
     application.include_router(auth_router)
     application.include_router(accounts_router)
     application.include_router(transactions_router)
+    application.include_router(loans_router)
 
     @application.get("/health", tags=["system"])
     def health_check() -> dict[str, str]:
