@@ -22,7 +22,7 @@ services:
       context: .
     environment:
       APP_ENV: ${APP_ENV:-development}
-      DATABASE_URL: mysql+pymysql://${MARIADB_USER:-podobank}:${MARIADB_PASSWORD:?Set MARIADB_PASSWORD in the local .env file}@db:3306/${MARIADB_DATABASE:-podobank_dev}
+      DATABASE_URL: ${COMPOSE_DATABASE_URL:?Set COMPOSE_DATABASE_URL in the local .env file}
     depends_on:
       db:
         condition: service_healthy

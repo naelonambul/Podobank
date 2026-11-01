@@ -1,0 +1,27 @@
+{
+  "schema": 1,
+  "id": "compose-database-url-env",
+  "kind": "implementation",
+  "title": "Load the Compose database URL from local configuration",
+  "base": {
+    "ref": "main",
+    "commit": "8516184c5558c767b2ec648554a6f8345d59358c"
+  },
+  "baseline": {
+    "intent.md": "sha256:713e23285d0340754f840512430a1c1de8dc67bca3018c9bb320a9725d33d420",
+    "spec.md": "sha256:56f1b7410dead215a50f11138df089c389dcedc85eda3123c75863586584d628"
+  },
+  "write_scope": [
+    "compose.yaml",
+    ".env.example"
+  ],
+  "approvals": [
+    {
+      "artifact": "plan.md",
+      "sha256": "sha256:1d3464f2cf00a5175795eba0994b5eccf03b090e805c860e7b17544e2d672c3a",
+      "by": "naelonambul",
+      "at": "2026-11-01T10:25:18Z",
+      "write_scope_sha256": "sha256:1c7d0eddaaaa2050fc34fa329823148f01168e3e7d9f37fbfba581d0f25a95a3"
+    }
+  ]
+}
