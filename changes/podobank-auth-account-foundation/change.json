@@ -1,0 +1,33 @@
+{
+  "schema": 1,
+  "id": "podobank-auth-account-foundation",
+  "kind": "implementation",
+  "title": "Implement authentication and default account provisioning",
+  "base": {
+    "ref": "main",
+    "commit": "f338c6bb9e43274f6318f9a0a940e9f0a32c0cfb"
+  },
+  "baseline": {
+    "intent.md": "sha256:713e23285d0340754f840512430a1c1de8dc67bca3018c9bb320a9725d33d420",
+    "spec.md": "sha256:56f1b7410dead215a50f11138df089c389dcedc85eda3123c75863586584d628"
+  },
+  "write_scope": [
+    "backend/**",
+    "compose.yaml",
+    "Dockerfile",
+    ".env.example",
+    "README.md",
+    "pyproject.toml",
+    "uv.lock"
+  ],
+  "approvals": [
+    {
+      "artifact": "plan.md",
+      "sha256": "sha256:00c5768c36cd59a0dbdcb72dd80dab566280e63de769d318e8c6759c3875e85c",
+      "by": "naelonambul",
+      "at": "2026-11-01T12:49:43Z",
+      "write_scope_sha256": "sha256:3c79d3fee918426fba6f2eb9e1f74e8d8930f29a12e5785c65eeed22fbbd2637",
+      "note": "\ub3d9\uc2dc\uc131 \ucc98\ub9ac \uae30\uc900\uc744 \ubc18\uc601\ud55c \uacc4\ud68d \uc2b9\uc778"
+    }
+  ]
+}

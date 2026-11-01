@@ -15,7 +15,11 @@ from podobank_api.database import (
     reset_database,
     validate_reset_target,
 )
+from podobank_api.features.auth.passwords import verify_password
 from podobank_api.seed import DEMO_ACCOUNT_NUMBER, DEMO_CUSTOMER_PHONE
+
+TEST_EMPLOYEE_PHONE = "01000000009"
+TEST_EMPLOYEE_PASSWORD = "test-employee-password"
 
 
 class MariaDBSetupTests(unittest.TestCase):
@@ -25,28 +29,61 @@ class MariaDBSetupTests(unittest.TestCase):
             self.fail("DATABASE_URL must point to the isolated podobank_test database")
         validate_reset_target("test", self.database_url)
         self.engine = create_database_engine(self.database_url)
-        reset_database(self.engine, app_env="test")
+        reset_database(
+            self.engine,
+            app_env="test",
+            employee_phone=TEST_EMPLOYEE_PHONE,
+            employee_password=TEST_EMPLOYEE_PASSWORD,
+        )
 
     def tearDown(self) -> None:
         self.engine.dispose()
 
     def test_initialization_creates_schema_and_is_idempotent(self) -> None:
-        initialize_database(self.engine)
-        initialize_database(self.engine)
+        initialize_database(
+            self.engine,
+            employee_phone=TEST_EMPLOYEE_PHONE,
+            employee_password=TEST_EMPLOYEE_PASSWORD,
+        )
+        initialize_database(
+            self.engine,
+            employee_phone=TEST_EMPLOYEE_PHONE,
+            employee_password=TEST_EMPLOYEE_PASSWORD,
+        )
 
         self.assertEqual(set(inspect(self.engine).get_table_names()), {"users", "accounts"})
         with self.engine.connect() as connection:
             user_count = connection.execute(text("SELECT COUNT(*) FROM users")).scalar_one()
             account_count = connection.execute(text("SELECT COUNT(*) FROM accounts")).scalar_one()
-            phone = connection.execute(text("SELECT phone_number FROM users")).scalar_one()
+            phone = connection.execute(
+                text("SELECT phone_number FROM users WHERE phone_number = :phone"),
+                {"phone": DEMO_CUSTOMER_PHONE},
+            ).scalar_one()
             account_number = connection.execute(
-                text("SELECT account_number FROM accounts")
+                text("SELECT account_number FROM accounts WHERE account_number = :account_number"),
+                {"account_number": DEMO_ACCOUNT_NUMBER},
+            ).scalar_one()
+            employee_hash = connection.execute(
+                text("SELECT password_hash FROM users WHERE phone_number = :phone"),
+                {"phone": TEST_EMPLOYEE_PHONE},
             ).scalar_one()
 
-        self.assertEqual(user_count, 1)
+        self.assertEqual(user_count, 2)
         self.assertEqual(account_count, 1)
         self.assertEqual(phone, DEMO_CUSTOMER_PHONE)
         self.assertEqual(account_number, DEMO_ACCOUNT_NUMBER)
+        self.assertTrue(employee_hash.startswith("$argon2id$"))
+        self.assertTrue(verify_password(employee_hash, TEST_EMPLOYEE_PASSWORD))
+
+    def test_mariadb_global_and_session_use_oracle_and_strict_modes(self) -> None:
+        with self.engine.connect() as connection:
+            global_mode, session_mode = connection.execute(
+                text("SELECT @@GLOBAL.sql_mode, @@SESSION.sql_mode")
+            ).one()
+
+        for mode in (global_mode, session_mode):
+            self.assertIn("ORACLE", mode.split(","))
+            self.assertIn("STRICT_TRANS_TABLES", mode.split(","))
 
     def test_schema_enforces_unique_keys_and_foreign_keys(self) -> None:
         with self.assertRaises(IntegrityError):
@@ -103,18 +140,26 @@ class MariaDBSetupTests(unittest.TestCase):
                 text("CREATE VIEW disposable_view AS SELECT id FROM disposable_table")
             )
 
-        reset_database(self.engine, app_env="test")
+        reset_database(
+            self.engine,
+            app_env="test",
+            employee_phone=TEST_EMPLOYEE_PHONE,
+            employee_password=TEST_EMPLOYEE_PASSWORD,
+        )
 
         self.assertEqual(set(inspect(self.engine).get_table_names()), {"users", "accounts"})
         self.assertEqual(inspect(self.engine).get_view_names(), [])
         with self.engine.connect() as connection:
-            phone = connection.execute(text("SELECT phone_number FROM users")).scalar_one()
+            phone = connection.execute(
+                text("SELECT phone_number FROM users WHERE phone_number = :phone"),
+                {"phone": DEMO_CUSTOMER_PHONE},
+            ).scalar_one()
 
         self.assertEqual(phone, DEMO_CUSTOMER_PHONE)
 
     def test_reset_without_seed_leaves_empty_tables_after_initialization(self) -> None:
         reset_database(self.engine, app_env="test", include_seed=False)
-        initialize_database(self.engine)
+        initialize_database(self.engine, include_seed=False)
 
         with self.engine.connect() as connection:
             user_count = connection.execute(text("SELECT COUNT(*) FROM users")).scalar_one()

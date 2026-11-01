@@ -7,18 +7,30 @@
 ### Docker Compose
 
 ```sh
-cp .env.example .env
+cp -n .env.example .env
 docker compose up --build
 ```
 
-FastAPI는 `http://localhost:8000`에서 실행되고 `/health`가 상태를 반환합니다. MariaDB가 정상 상태가 된 뒤 API가 시작됩니다. DB 데이터는 `mariadb_data` 영속 볼륨에 보관됩니다. 최초 실행 시 스키마와 데모 고객 및 계좌를 준비합니다.
+`.env`가 이미 있으면 덮어쓰지 말고 `.env.example`의 새 설정 항목을 직접 추가합니다. MariaDB는 Oracle SQL 모드와 엄격한 데이터 검사를 켠 채 실행되며, 데이터는 `mariadb_data` 영속 볼륨에 보관됩니다. FastAPI는 `http://localhost:8000`에서 실행되고 `/health`가 상태를 반환합니다. API 시작은 기존 DB 스키마나 데이터를 변경하지 않습니다.
+
+최초 실행은 다음 명령으로 스키마와 기본 시드 데이터를 준비합니다. 이 명령은 기존 테이블 구조와 데이터를 보존하며, 테이블 구조를 변경하지 않습니다. 개발 단계에서 스키마 정의가 달라지면 마이그레이션을 유지하지 않고 아래 `reset-db` 명령으로 `podobank_dev`를 비운 뒤 새 스키마를 생성합니다.
+
+```sh
+docker compose exec api podobank-api init-db
+```
+
+개발 환경 초기화는 데모 고객과 계좌, 은행 직원 계정을 준비합니다. 직원 로그인은 `.env`의 `BANK_EMPLOYEE_PHONE`과 `BANK_EMPLOYEE_PASSWORD`를 사용합니다. Kakao 로그인을 쓰려면 Kakao Developers의 REST API 키, 클라이언트 시크릿, 등록된 리다이렉트 URI를 `.env`에 넣습니다.
+
+카카오 로그인은 credentials 포함 요청으로 `POST /auth/kakao/state`를 호출해 응답의 `authorization_url`로 이동합니다. 카카오 콜백에서 받은 `code`와 `state`도 credentials 포함 요청으로 `POST /auth/kakao/login`에 보내면 API가 브라우저의 단기 HttpOnly state 쿠키를 확인한 뒤 코드를 교환합니다.
+
+프로덕션은 `API_ORIGIN`, `FRONTEND_ORIGINS`, Kakao 리다이렉트 URI를 HTTPS와 같은 hostname으로 설정해야 합니다. 세션·OAuth state 쿠키는 `SameSite=Lax`를 사용하므로 서로 다른 hostname 간 쿠키 전송을 지원하지 않습니다.
 
 개발 DB의 데이터를 지우고 샘플 데이터와 함께 재생성하려면 `docker compose run --rm api podobank-api reset-db`를 실행합니다. 샘플 행 없이 빈 스키마만 만들려면 `docker compose run --rm api podobank-api reset-db --no-seed`를 실행합니다. 이 명령은 개발 환경의 `podobank_dev` 데이터베이스에만 허용됩니다.
 
 ### 로컬 Python API 실행
 
 ```sh
-cp .env.example .env
+cp -n .env.example .env
 docker compose up -d db
 uv sync --extra dev
 set -a && . ./.env && set +a
@@ -26,7 +38,7 @@ uv run podobank-api init-db
 uv run uvicorn podobank_api.app:app --reload
 ```
 
-로컬 API는 Compose의 MariaDB를 사용합니다. `DATABASE_URL`은 Compose가 컨테이너 환경에 구성하며, 로컬 API 실행 시에는 `.env` 값을 셸 환경에 불러옵니다.
+로컬 API는 Compose의 MariaDB를 사용합니다. 로컬 API 실행 시 `.env`의 `DATABASE_URL`과 인증 설정을 셸 환경에 불러옵니다.
 
 ### 품질 검사
 
@@ -37,8 +49,9 @@ CREATE DATABASE IF NOT EXISTS podobank_test CHARACTER SET utf8mb4 COLLATE utf8mb
 GRANT ALL PRIVILEGES ON podobank_test.* TO 'podobank'@'%';
 FLUSH PRIVILEGES;
 SQL
-DATABASE_URL=mysql+pymysql://podobank:podobank-test@127.0.0.1:3306/podobank_test APP_ENV=test python3 scripts/verify_backend.py --suite mariadb
-python3 scripts/repo.py verify --change podobank-mariadb-adoption --full
+set -a && . ./.env && set +a
+DATABASE_URL="mysql+pymysql://${MARIADB_USER}:${MARIADB_PASSWORD}@127.0.0.1:${DB_PORT:-3306}/podobank_test" APP_ENV=test python3 scripts/verify_backend.py --suite mariadb
+python3 scripts/repo.py verify --change podobank-auth-account-foundation --full
 ```
 
 검증은 전용 `podobank_test` 데이터베이스에 연결합니다. 백엔드 검증 스크립트는 선언된 도구를 임시 Python 가상환경에 설치한 뒤 Ruff lint, Ruff format 검사와 MariaDB 통합 테스트를 실행합니다.

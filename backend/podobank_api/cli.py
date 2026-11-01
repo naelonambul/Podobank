@@ -37,6 +37,11 @@ def main(argv: Sequence[str] | None = None) -> int:
         settings = Settings.from_environment()
         if arguments.command == "reset-db":
             validate_reset_target(settings.app_env, settings.database_url)
+            include_seed = not arguments.no_seed
+        else:
+            include_seed = settings.app_env != "production"
+        if include_seed:
+            settings.validate_employee_seed()
 
         engine = create_database_engine(settings.database_url)
         try:
@@ -44,10 +49,17 @@ def main(argv: Sequence[str] | None = None) -> int:
                 reset_database(
                     engine,
                     app_env=settings.app_env,
-                    include_seed=not arguments.no_seed,
+                    include_seed=include_seed,
+                    employee_phone=settings.bank_employee_phone,
+                    employee_password=settings.bank_employee_password,
                 )
             else:
-                initialize_database(engine)
+                initialize_database(
+                    engine,
+                    include_seed=include_seed,
+                    employee_phone=settings.bank_employee_phone,
+                    employee_password=settings.bank_employee_password,
+                )
         finally:
             engine.dispose()
     except (DatabaseSafetyError, ValueError) as error:
