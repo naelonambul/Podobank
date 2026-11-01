@@ -81,6 +81,17 @@ These probes confirm that each harness receives the current local/remote command
 | 2026-10-31 | Claude Code CLI | 2.1.314 | yes | yes | 4/4: `change-execution`, `repository-quality`, `sdlc-artifacts`, `verification-map` |
 | 2026-10-31 | Codex CLI | 0.166.0 | yes | yes | 4/4: `change-execution`, `repository-quality`, `sdlc-artifacts`, `verification-map` (completed after WebSocket failure and HTTP fallback) |
 
+### PodoBank template-sync probes (2026-11-01)
+
+These are PodoBank observations, not the template's 2026-11-01 measurements.
+
+| Surface | Version | Setup | Result |
+|---|---|---|---|
+| Codex CLI | 0.166.0 | scratch copy `/tmp/podobank-sync-smoke`, stdin closed, read-only sandbox | `AGENTS=yes`, `GITHUB_RULE=yes`, 4/4 core project skills; completed after a WebSocket connection error; output `/tmp/podobank-sync-codex-scratch.log` |
+| Claude Code CLI | 2.1.316 | owner-run on Mac, 2026-11-01; scratch copy of oracle worktree without `.git`; approved plan hash matched `6648d609e0c163089b9a46f285f428115c3a9bcd931201b8d2aba30d751aee93`; no user-level skill duplicates | basic: `AGENTS=yes`, `GITHUB_RULE=yes`, 4/4 project skills; shadowing `CLAUDE.md`: `AGENTS=no`, `GITHUB_RULE=no`, same 4/4 skills (expected negative instruction result) |
+
+Claude results were supplied by the owner from the Mac, not measured on oracle. The documented `claude -p` procedure disabled tools while allowing Skill. Both runs listed `change-execution`, `repository-quality`, `sdlc-artifacts`, and `verification-map`; skill discovery continued with the shadowing file.
+
 The desktop app is **not verified**. Re-run the procedure below from a desktop session before claiming support. No other agent surface has been tested. Cursor is not a target.
 
 ### Smoke-test procedure
