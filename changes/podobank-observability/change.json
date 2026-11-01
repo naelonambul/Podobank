@@ -1,0 +1,48 @@
+{
+  "schema": 1,
+  "id": "podobank-observability",
+  "kind": "behavior",
+  "title": "Collect financial events and metrics in the observability stack",
+  "base": {
+    "ref": "main",
+    "commit": "e690e7c4a320439b37e50f235b0bc05377504a17"
+  },
+  "baseline": {
+    "intent.md": "sha256:713e23285d0340754f840512430a1c1de8dc67bca3018c9bb320a9725d33d420",
+    "spec.md": "sha256:72d755624c917727f3f33d3de6c3a5e061a744802dd0090d5ed62ac09b2fe963"
+  },
+  "write_scope": [
+    "compose.yaml",
+    "Dockerfile",
+    ".env.example",
+    "README.md",
+    "docs/stack-versions.md",
+    "checks.json",
+    "scripts/verify_observability.py",
+    "backend/podobank_api/app.py",
+    "backend/podobank_api/cli.py",
+    "backend/podobank_api/features/transactions/service.py",
+    "backend/podobank_api/features/loans/service.py",
+    "backend/podobank_api/features/observability/**",
+    "backend/tests/test_observability.py",
+    "monitoring/**",
+    "spec.md"
+  ],
+  "approvals": [
+    {
+      "artifact": "spec.md",
+      "sha256": "sha256:14bc72563206ea2fa08871e9e88b41f9b61550d567f95b6c4483e8abdd912b6e",
+      "by": "ckh",
+      "at": "2026-11-01T22:54:58Z",
+      "note": "\uc6d4\ubcc4 \uc6d0\uc7a5 \ud30c\ud2f0\uc158 \ud45c\ud604\uc744 \ubc18\uc601\ud55c \uc218\uc815 \uba85\uc138 \uc2b9\uc778"
+    },
+    {
+      "artifact": "plan.md",
+      "sha256": "sha256:9ae9c6514a71b0e264aacfccaf9b578272696703d0b42a4600bda552a0c3ac05",
+      "by": "ckh",
+      "at": "2026-11-01T22:56:42Z",
+      "write_scope_sha256": "sha256:36459922b5af4cb5e3b14a0a3b7f762b2875a36686f3c3dcc57b3c13b03f5d17",
+      "note": "\uaca9\ub9ac\ub41c Compose \uac80\uc99d\uc744 \ud3ec\ud568\ud55c \uad00\uce21\uc131 \uad6c\ud604 \uacc4\ud68d \uc2b9\uc778"
+    }
+  ]
+}

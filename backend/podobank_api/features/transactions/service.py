@@ -7,6 +7,7 @@ from typing import TypeVar
 
 from sqlalchemy.engine import Engine
 
+from podobank_api.features.observability.events import record_financial_operation
 from podobank_api.features.transactions import sql
 
 logger = logging.getLogger(__name__)
@@ -183,6 +184,7 @@ class TransactionService:
         try:
             result = action()
         except TransactionError as error:
+            record_financial_operation(operation, "failure", error.reason)
             logger.info(
                 "financial_operation operation=%s outcome=failure reason=%s",
                 operation,
@@ -190,11 +192,13 @@ class TransactionService:
             )
             raise
         except Exception:
+            record_financial_operation(operation, "failure", "database_error")
             logger.info(
                 "financial_operation operation=%s outcome=failure reason=database_error",
                 operation,
             )
             raise
+        record_financial_operation(operation, "success", "completed")
         logger.info(
             "financial_operation operation=%s outcome=success reason=completed",
             operation,

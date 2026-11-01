@@ -9,6 +9,7 @@ from typing import TypeVar
 from sqlalchemy.engine import Engine
 
 from podobank_api.features.loans import sql
+from podobank_api.features.observability.events import record_financial_operation
 from podobank_api.features.transactions import sql as transaction_sql
 from podobank_api.features.transactions.service import MAX_BALANCE
 
@@ -419,6 +420,7 @@ class LoanService:
         try:
             result = action()
         except LoanError as error:
+            record_financial_operation(operation, "failure", error.reason)
             logger.info(
                 "financial_operation operation=%s outcome=failure reason=%s",
                 operation,
@@ -426,11 +428,26 @@ class LoanService:
             )
             raise
         except Exception:
+            record_financial_operation(operation, "failure", "database_error")
             logger.info(
                 "financial_operation operation=%s outcome=failure reason=database_error",
                 operation,
             )
             raise
+        repayment_counts = None
+        if operation == "repayment_batch" and isinstance(result, RepaymentRunResult):
+            repayment_counts = (
+                result.processed,
+                result.paid,
+                result.overdue,
+                result.skipped,
+            )
+        record_financial_operation(
+            operation,
+            "success",
+            "completed",
+            repayment_counts=repayment_counts,
+        )
         logger.info(
             "financial_operation operation=%s outcome=success reason=completed",
             operation,

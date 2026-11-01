@@ -5,7 +5,7 @@ services:
       - mariadbd
       - --sql-mode=ORACLE,STRICT_TRANS_TABLES,ERROR_FOR_DIVISION_BY_ZERO,NO_ENGINE_SUBSTITUTION
     env_file:
-      - .env
+      - ${COMPOSE_ENV_FILE:-.env}
     environment:
       MARIADB_DATABASE: ${MARIADB_DATABASE:-podobank_dev}
       MARIADB_USER: ${MARIADB_USER:-podobank}
@@ -36,11 +36,14 @@ services:
       FRONTEND_ORIGINS: ${FRONTEND_ORIGINS:-http://localhost:5173,http://localhost:8080}
       BANK_EMPLOYEE_PHONE: ${BANK_EMPLOYEE_PHONE:-01000000002}
       BANK_EMPLOYEE_PASSWORD: ${BANK_EMPLOYEE_PASSWORD:-local-demo-employee-password}
+      FINANCIAL_EVENTS_PATH: /var/log/podobank/financial-events.jsonl
     depends_on:
       db:
         condition: service_healthy
     ports:
       - "127.0.0.1:${API_PORT:-8000}:8000"
+    volumes:
+      - financial_events:/var/log/podobank
     healthcheck:
       test:
         - CMD
@@ -52,5 +55,65 @@ services:
       retries: 3
       start_period: 10s
 
+  alloy:
+    image: grafana/alloy:v1.21.3
+    command:
+      - run
+      - --storage.path=/var/lib/alloy/data
+      - --server.http.listen-addr=0.0.0.0:12345
+      - /etc/alloy/config.alloy
+    volumes:
+      - ./monitoring/alloy/config.alloy:/etc/alloy/config.alloy:ro
+      - financial_events:/var/log/podobank:ro
+      - alloy_data:/var/lib/alloy/data
+    depends_on:
+      loki:
+        condition: service_started
+
+  loki:
+    image: grafana/loki:3.7.9
+    command:
+      - -config.file=/etc/loki/config.yaml
+    volumes:
+      - ./monitoring/loki/config.yaml:/etc/loki/config.yaml:ro
+      - loki_data:/loki
+
+  prometheus:
+    image: prom/prometheus:v3.13.3
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.path=/prometheus
+      - --storage.tsdb.retention.time=15d
+    volumes:
+      - ./monitoring/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data:/prometheus
+    depends_on:
+      alloy:
+        condition: service_started
+
+  grafana:
+    image: grafana/grafana:13.3.0
+    environment:
+      GF_SECURITY_ADMIN_USER: ${GRAFANA_ADMIN_USER:-admin}
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:-development-only-change-this-password}
+      GF_USERS_ALLOW_SIGN_UP: "false"
+      GF_AUTH_ANONYMOUS_ENABLED: "false"
+    ports:
+      - "127.0.0.1:${GRAFANA_PORT:-3000}:3000"
+    volumes:
+      - ./monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./monitoring/grafana/dashboards:/etc/grafana/dashboards:ro
+      - grafana_data:/var/lib/grafana
+    depends_on:
+      prometheus:
+        condition: service_started
+      loki:
+        condition: service_started
+
 volumes:
   mariadb_data:
+  financial_events:
+  alloy_data:
+  loki_data:
+  prometheus_data:
+  grafana_data:

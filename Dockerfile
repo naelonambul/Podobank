@@ -11,6 +11,7 @@ COPY pyproject.toml uv.lock README.md ./
 COPY backend ./backend
 
 RUN uv sync --locked --no-dev --no-editable
+RUN mkdir -p /var/log/podobank && chown 10001:10001 /var/log/podobank
 
 ENV PATH="/app/.venv/bin:$PATH"
 

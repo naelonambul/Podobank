@@ -1,0 +1,63 @@
+local.file_match "financial_events" {
+  path_targets = [{
+    "__path__" = "/var/log/podobank/*.jsonl",
+  }]
+  sync_period = "5s"
+}
+
+loki.source.file "financial_events" {
+  targets    = local.file_match.financial_events.targets
+  forward_to = [loki.process.financial_events.receiver]
+  tail_from_end = false
+}
+
+loki.process "financial_events" {
+  forward_to = [loki.write.podobank.receiver]
+
+  stage.json {
+    expressions = {
+      timestamp = "timestamp",
+      event     = "event",
+      operation = "operation",
+      outcome   = "outcome",
+      reason    = "reason",
+    }
+  }
+
+  stage.timestamp {
+    source = "timestamp"
+    format = "RFC3339Nano"
+  }
+
+  stage.labels {
+    values = {
+      operation = "operation",
+      outcome   = "outcome",
+      reason    = "reason",
+    }
+  }
+
+  stage.metrics {
+    metric.counter {
+      name              = "financial_operations_total"
+      prefix            = "podobank_"
+      description       = "Financial service operations recorded by PodoBank."
+      source            = "event"
+      value             = "financial_operation"
+      action            = "inc"
+      max_idle_duration = "24h"
+    }
+  }
+
+  stage.static_labels {
+    values = {
+      service = "podobank-api",
+    }
+  }
+}
+
+loki.write "podobank" {
+  endpoint {
+    url = "http://loki:3100/loki/api/v1/push"
+  }
+}

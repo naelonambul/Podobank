@@ -1,3 +1,4 @@
+import os
 from collections.abc import Callable
 
 import httpx
@@ -15,6 +16,7 @@ from podobank_api.features.auth.kakao import KakaoProvider
 from podobank_api.features.auth.service import AuthService
 from podobank_api.features.loans.api import router as loans_router
 from podobank_api.features.loans.service import LoanService
+from podobank_api.features.observability.events import configure_financial_event_logging
 from podobank_api.features.transactions.api import router as transactions_router
 from podobank_api.features.transactions.service import TransactionService
 from podobank_api.settings import Settings
@@ -28,6 +30,7 @@ def create_app(
 ) -> FastAPI:
     app_settings = settings or Settings.from_environment()
     app_settings.validate_application_security()
+    configure_financial_event_logging(os.environ.get("FINANCIAL_EVENTS_PATH"))
     database_engine = engine or create_database_engine(app_settings.database_url)
 
     application = FastAPI(title="PodoBank API", version="0.1.0")
