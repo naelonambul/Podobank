@@ -1,0 +1,28 @@
+{
+  "schema": 1,
+  "id": "template-sync",
+  "kind": "repository",
+  "title": "Sync template bd9448e through 80c1a73",
+  "base": {
+    "ref": "main",
+    "commit": "8ecbff61a6566739f4fdd490b801b09c00dcbcb9"
+  },
+  "baseline": {},
+  "write_scope": [
+    ".agents/skills/repository-quality/SKILL.md",
+    ".agents/skills/sdlc-artifacts/SKILL.md",
+    "docs/agent-surfaces.md",
+    "scripts/repo.py",
+    "scripts/tests/test_status.py"
+  ],
+  "approvals": [
+    {
+      "artifact": "plan.md",
+      "sha256": "sha256:6648d609e0c163089b9a46f285f428115c3a9bcd931201b8d2aba30d751aee93",
+      "by": "ckh",
+      "at": "2026-11-01T03:19:53Z",
+      "write_scope_sha256": "sha256:e87d3d046186625df701a454a509791d5aeb06a20911ace0213af558fc770f3d",
+      "note": "\ub0b4\uac00 \uc624\ub108\ub2c8\uae4c \uc9c4\ud589\ud574"
+    }
+  ]
+}
