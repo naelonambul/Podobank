@@ -1,3 +1,5 @@
+from datetime import UTC, datetime
+
 from sqlalchemy.engine import Connection
 
 SCHEMA_STATEMENTS = (
@@ -42,6 +44,55 @@ SCHEMA_STATEMENTS = (
 )
 
 
+def ledger_schema_statement(now: datetime | None = None) -> str:
+    current = now or datetime.now(UTC)
+    current_month = datetime(current.year, current.month, 1)
+    partitions = [
+        "PARTITION p_before_{month} VALUES LESS THAN ('{boundary}')".format(
+            month=current_month.strftime("%Y%m"),
+            boundary=current_month.strftime("%Y-%m-%d"),
+        )
+    ]
+
+    for offset in range(12):
+        year = current_month.year + (current_month.month - 1 + offset) // 12
+        month = (current_month.month - 1 + offset) % 12 + 1
+        next_year = year + (month == 12)
+        next_month = month % 12 + 1
+        boundary = datetime(next_year, next_month, 1)
+        partitions.append(
+            "PARTITION p_{month} VALUES LESS THAN ('{boundary}')".format(
+                month=f"{year:04d}{month:02d}",
+                boundary=boundary.strftime("%Y-%m-%d"),
+            )
+        )
+
+    partitions.append("PARTITION p_future VALUES LESS THAN (MAXVALUE)")
+    partition_sql = ",\n        ".join(partitions)
+    return f"""
+    CREATE TABLE IF NOT EXISTS ledger_entries (
+        entry_id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+        posted_at DATETIME(6) NOT NULL,
+        transaction_id CHAR(36) NOT NULL,
+        account_id BIGINT UNSIGNED NOT NULL,
+        user_id BIGINT UNSIGNED NOT NULL,
+        entry_type VARCHAR(24) NOT NULL,
+        amount BIGINT NOT NULL,
+        PRIMARY KEY (entry_id, posted_at),
+        KEY ix_ledger_account_posted_entry (account_id, posted_at, entry_id),
+        KEY ix_ledger_transaction_posted_entry (transaction_id, posted_at, entry_id),
+        CONSTRAINT chk_ledger_entry_type CHECK (
+            entry_type IN ('deposit', 'withdrawal', 'transfer_in', 'transfer_out')
+        ),
+        CONSTRAINT chk_ledger_amount CHECK (amount <> 0)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+    PARTITION BY RANGE COLUMNS (posted_at) (
+        {partition_sql}
+    )
+    """
+
+
 def create_schema(connection: Connection) -> None:
     for statement in SCHEMA_STATEMENTS:
         connection.exec_driver_sql(statement)
+    connection.exec_driver_sql(ledger_schema_statement())
