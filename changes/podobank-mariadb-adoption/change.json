@@ -1,0 +1,54 @@
+{
+  "schema": 1,
+  "id": "podobank-mariadb-adoption",
+  "kind": "intent",
+  "title": "Use MariaDB as the initial backend database",
+  "base": {
+    "ref": "main",
+    "commit": "69635d2eaf0aff98488bbef03f5273ef8f6701e0"
+  },
+  "baseline": {
+    "intent.md": "sha256:1c52f785b442a84d8da31f9fc381f316aab81421071cbe210634a94b34f37d5c",
+    "spec.md": "sha256:1627b43c000da6c3dc0333cb8e88ff3737640a60fe6cb2b4b53ee72579e7f381"
+  },
+  "write_scope": [
+    "intent.md",
+    "spec.md",
+    "backend/**",
+    "compose.yaml",
+    "Dockerfile",
+    ".env.example",
+    ".gitignore",
+    ".dockerignore",
+    "README.md",
+    "pyproject.toml",
+    "uv.lock",
+    "checks.json",
+    ".github/workflows/repository.yml",
+    "scripts/verify_backend.py"
+  ],
+  "approvals": [
+    {
+      "artifact": "intent.md",
+      "sha256": "sha256:713e23285d0340754f840512430a1c1de8dc67bca3018c9bb320a9725d33d420",
+      "by": "naelonambul",
+      "at": "2026-11-01T07:42:53Z",
+      "note": "Owner approved MariaDB as the initial and sole development database."
+    },
+    {
+      "artifact": "spec.md",
+      "sha256": "sha256:56f1b7410dead215a50f11138df089c389dcedc85eda3123c75863586584d628",
+      "by": "naelonambul",
+      "at": "2026-11-01T07:45:48Z",
+      "note": "Owner approved the MariaDB-first backend specification including index and transfer-locking requirements."
+    },
+    {
+      "artifact": "plan.md",
+      "sha256": "sha256:94d17c365728421ab6229ad2ec897397c9b9c1e18bce55dcae98ff52f8c2db5b",
+      "by": "naelonambul",
+      "at": "2026-11-01T07:51:22Z",
+      "write_scope_sha256": "sha256:b95fedbbc88a02a09450b91b9a59c76305dbbc903ba9e76ac31cfb3090f7f98d",
+      "note": "Owner approved the MariaDB adoption plan and directed implementation to proceed."
+    }
+  ]
+}

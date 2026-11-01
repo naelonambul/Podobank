@@ -83,11 +83,55 @@ jobs:
           include-hidden-files: true
           if-no-files-found: ignore
 
+  verify-mariadb:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      APP_ENV: test
+      DATABASE_URL: mysql+pymysql://podobank:podobank-test@127.0.0.1:3306/podobank_test
+    services:
+      mariadb:
+        image: mariadb:11.8.9
+        env:
+          MARIADB_DATABASE: podobank_test
+          MARIADB_USER: podobank
+          MARIADB_PASSWORD: podobank-test
+          MARIADB_ROOT_PASSWORD: podobank-root-test
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="healthcheck.sh --connect --innodb_initialized"
+          --health-interval=5s
+          --health-timeout=5s
+          --health-retries=20
+          --health-start-period=20s
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.13"
+      - name: Write PR body
+        if: github.event_name == 'pull_request'
+        env:
+          PR_BODY: ${{ github.event.pull_request.body }}
+        run: printf '%s\n' "$PR_BODY" > /tmp/pr-body.md
+      - run: python3 scripts/repo.py verify --group mariadb $VERIFY_ARGS $REPO_ARGS
+      - if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: evidence-mariadb
+          path: .evidence/
+          include-hidden-files: true
+          if-no-files-found: ignore
+
   # The one status check to require. Every job above must end in success;
   # skipped, cancelled, or failed jobs all fail the summary.
   summary:
     if: always()
-    needs: [control-plane-tests, status, verify-core]
+    needs: [control-plane-tests, status, verify-core, verify-mariadb]
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:

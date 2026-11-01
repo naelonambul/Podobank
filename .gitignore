@@ -86,11 +86,6 @@ venv/
 .uv-cache/
 *.egg-info/
 *.dist-info/
-/data/
-*.db
-*.sqlite
-*.sqlite3
-
 # Local bind-mounted runtime data for the Docker Compose service stack.
 # Keep service configuration and provisioning files tracked.
 /mariadb-data/

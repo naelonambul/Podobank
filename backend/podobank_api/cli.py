@@ -15,11 +15,11 @@ from podobank_api.settings import Settings
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="podobank-api")
     commands = parser.add_subparsers(dest="command", required=True)
-    commands.add_parser("init-db", help="create the SQLite schema and default sample data")
+    commands.add_parser("init-db", help="create the MariaDB schema and default sample data")
 
     reset_parser = commands.add_parser(
         "reset-db",
-        help="recreate the development SQLite schema and sample data",
+        help="recreate the explicitly allowed development database schema and sample data",
     )
     reset_parser.add_argument(
         "--no-seed",
@@ -55,9 +55,9 @@ def main(argv: Sequence[str] | None = None) -> int:
         return 2
 
     if arguments.command == "reset-db" and arguments.no_seed:
-        print("SQLite schema recreated without sample data.")
+        print("MariaDB schema recreated without sample data.")
     else:
-        print("SQLite schema is ready with default sample data.")
+        print("MariaDB schema is ready with default sample data.")
     return 0
 
 

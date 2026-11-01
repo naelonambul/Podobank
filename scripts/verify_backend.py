@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Run backend lint, format and SQLite tests in a disposable Python environment."""
+"""Run backend lint, format and MariaDB tests in a disposable Python environment."""
 
 import argparse
 import os
@@ -9,6 +9,7 @@ import sys
 import tempfile
 import venv
 from pathlib import Path
+from urllib.parse import urlsplit
 
 ROOT = Path(__file__).resolve().parent.parent
 
@@ -38,12 +39,30 @@ def run(command: list[str], *, label: str, cwd: Path = ROOT) -> None:
 
 def parser() -> argparse.ArgumentParser:
     result = argparse.ArgumentParser(description=__doc__)
-    result.add_argument("--suite", choices=("sqlite",), required=True)
+    result.add_argument("--suite", choices=("mariadb",), required=True)
     return result
+
+
+def validate_test_database_environment() -> None:
+    if os.environ.get("APP_ENV") != "test":
+        raise SystemExit("APP_ENV=test is required for backend verification.")
+
+    database_url = os.environ.get("DATABASE_URL", "")
+    parsed_url = urlsplit(database_url)
+    if (
+        parsed_url.scheme != "mysql+pymysql"
+        or parsed_url.path.removeprefix("/") != "podobank_test"
+        or parsed_url.hostname not in {"127.0.0.1", "localhost", "mariadb"}
+        or parsed_url.port not in {None, 3306}
+    ):
+        raise SystemExit(
+            "DATABASE_URL must connect through PyMySQL to the isolated podobank_test database."
+        )
 
 
 def main() -> int:
     arguments = parser().parse_args()
+    validate_test_database_environment()
     with tempfile.TemporaryDirectory(prefix="podobank-backend-check-") as temporary_directory:
         temporary_root = Path(temporary_directory)
         source = temporary_root / "source"

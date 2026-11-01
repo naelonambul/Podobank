@@ -1,7 +1,5 @@
-from pathlib import Path
-
-from sqlalchemy import create_engine, event
-from sqlalchemy.engine import Connection, Engine
+from sqlalchemy import create_engine, text
+from sqlalchemy.engine import Engine
 from sqlalchemy.engine.url import make_url
 
 from podobank_api.schema import create_schema
@@ -17,43 +15,54 @@ def database_backend(database_url: str) -> str:
 
 
 def validate_reset_target(app_env: str, database_url: str) -> None:
-    if app_env != "development":
-        raise DatabaseSafetyError("reset-db is allowed only when APP_ENV=development")
-    if database_backend(database_url) != "sqlite":
-        raise DatabaseSafetyError("reset-db is allowed only for a SQLite database")
+    url = make_url(database_url)
+    if url.drivername != "mysql+pymysql":
+        raise DatabaseSafetyError("database commands require the mysql+pymysql driver")
+
+    expected_databases = {"development": "podobank_dev", "test": "podobank_test"}
+    expected_database = expected_databases.get(app_env)
+    if expected_database is None:
+        raise DatabaseSafetyError(
+            "reset-db is allowed only for APP_ENV=development or APP_ENV=test"
+        )
+    if url.database != expected_database:
+        raise DatabaseSafetyError(
+            f"reset-db is restricted to the {expected_database} database for APP_ENV={app_env}"
+        )
+    if url.host not in {"db", "localhost", "127.0.0.1"}:
+        raise DatabaseSafetyError("reset-db is restricted to a local MariaDB service")
+    if url.port not in {None, 3306}:
+        raise DatabaseSafetyError("reset-db is restricted to the local MariaDB port 3306")
 
 
 def create_database_engine(database_url: str) -> Engine:
     url = make_url(database_url)
-    if url.get_backend_name() != "sqlite":
-        raise DatabaseSafetyError("this backend setup currently supports SQLite only")
+    if url.drivername != "mysql+pymysql":
+        raise DatabaseSafetyError("the backend requires a mysql+pymysql MariaDB URL")
 
-    database_path = url.database
-    if database_path and database_path != ":memory:" and not database_path.startswith("file:"):
-        Path(database_path).expanduser().parent.mkdir(parents=True, exist_ok=True)
-
-    engine = create_engine(url, connect_args={"check_same_thread": False})
-
-    @event.listens_for(engine, "connect")
-    def enable_foreign_keys(dbapi_connection: object, _connection_record: object) -> None:
-        cursor = dbapi_connection.cursor()
-        cursor.execute("PRAGMA foreign_keys = ON")
-        cursor.close()
-
-    return engine
+    return create_engine(
+        url,
+        pool_pre_ping=True,
+        pool_recycle=1800,
+    )
 
 
 def initialize_database(engine: Engine, *, include_seed: bool = True) -> None:
-    if engine.dialect.name != "sqlite":
-        raise DatabaseSafetyError("this backend setup currently supports SQLite only")
+    if engine.dialect.name != "mysql" or engine.dialect.driver != "pymysql":
+        raise DatabaseSafetyError("the backend requires a MariaDB connection using PyMySQL")
 
-    with engine.begin() as connection:
-        existing_table_count = connection.exec_driver_sql(
-            "SELECT COUNT(*) FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%'"
+    with engine.connect() as connection:
+        existing_table_count = connection.execute(
+            text("SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = DATABASE()")
         ).scalar_one()
+        connection.commit()
+
         create_schema(connection)
+        connection.commit()
+
         if include_seed and existing_table_count == 0:
-            seed_default_data(connection)
+            with connection.begin():
+                seed_default_data(connection)
 
 
 def reset_database(
@@ -63,30 +72,35 @@ def reset_database(
     include_seed: bool = True,
 ) -> None:
     validate_reset_target(app_env, str(engine.url))
-    connection: Connection
 
     with engine.connect() as connection:
-        connection.exec_driver_sql("PRAGMA foreign_keys = OFF")
+        connection.exec_driver_sql("SET FOREIGN_KEY_CHECKS = 0")
         connection.commit()
         try:
-            with connection.begin():
-                database_objects = connection.exec_driver_sql(
-                    "SELECT type, name FROM sqlite_master "
-                    "WHERE type IN ('view', 'table') AND name NOT LIKE 'sqlite_%' "
-                    "ORDER BY CASE type WHEN 'view' THEN 0 ELSE 1 END"
-                ).all()
-                preparer = connection.dialect.identifier_preparer
-                for object_type, object_name in database_objects:
-                    quoted_name = preparer.quote(object_name)
-                    connection.exec_driver_sql(
-                        f"DROP {object_type.upper()} IF EXISTS {quoted_name}"
-                    )
+            database_objects = connection.execute(
+                text(
+                    "SELECT table_type, table_name FROM information_schema.tables "
+                    "WHERE table_schema = DATABASE() "
+                    "ORDER BY CASE table_type WHEN 'VIEW' THEN 0 ELSE 1 END, table_name"
+                )
+            ).all()
+            connection.commit()
 
-                create_schema(connection)
-                if include_seed:
+            preparer = connection.dialect.identifier_preparer
+            for object_type, object_name in database_objects:
+                quoted_name = preparer.quote(object_name)
+                drop_kind = "VIEW" if object_type == "VIEW" else "TABLE"
+                connection.exec_driver_sql(f"DROP {drop_kind} IF EXISTS {quoted_name}")
+                connection.commit()
+
+            create_schema(connection)
+            connection.commit()
+
+            if include_seed:
+                with connection.begin():
                     seed_default_data(connection)
         finally:
             if connection.in_transaction():
                 connection.rollback()
-            with connection.begin():
-                connection.exec_driver_sql("PRAGMA foreign_keys = ON")
+            connection.exec_driver_sql("SET FOREIGN_KEY_CHECKS = 1")
+            connection.commit()

@@ -19,7 +19,7 @@
 - 카카오 로그인으로 포도뱅크를 이용하는 일반 사용자
 - 대출 신청을 검토하고 승인하는 은행 직원
 - 금융 이벤트 흐름을 확인하는 개발자와 운영자
-- Vue 3, FastAPI, SQLite, SQLAlchemy Core, MariaDB, Alloy, Loki, Prometheus, Grafana로 구성된 시스템
+- Vue 3, FastAPI, MariaDB, SQLAlchemy Core, Alloy, Loki, Prometheus, Grafana로 구성된 시스템
 
 ## Constraints
 
@@ -28,7 +28,7 @@
 - 잔액이 부족한 출금·이체는 실패하고 계좌 잔액을 변경하지 않는다.
 - 신규 카카오 로그인 사용자에게 기본 계좌를 하나 자동 발급한다.
 - 로그인 인증은 JWT HttpOnly 쿠키를 사용한다.
-- 초기 백엔드 개발은 SQLite를 사용하고 SQLAlchemy Core의 연결·트랜잭션 기능으로 직접 작성한 SQL을 실행한다. ORM은 사용하지 않는다. 백엔드 완료 시 최종 테이블 구조를 확정하고 MariaDB를 연동한다.
+- 초기 백엔드부터 MariaDB를 유일한 데이터베이스로 사용하고 SQLAlchemy Core의 연결·트랜잭션 기능으로 직접 작성한 SQL을 실행한다. ORM은 사용하지 않는다.
 - 가입 시 휴대전화번호를 받고 중복 여부만 확인한다. SMS 인증은 하지 않으며 사전 등록된 데모 사용자는 가상 번호를 쓴다.
 - 가입 시 나이, 성별, 혼인 상태(미혼/기혼), 직장 유무를 받아 향후 상품 추천에 사용할 수 있도록 저장한다.
 - 계정 등급은 일반 사용자와 은행 직원으로 구분하고, 대출 승인은 은행 직원만 할 수 있다.
@@ -56,6 +56,7 @@
 - 승인 대출은 매월 1일 자동 차감하며, 잔액 부족 회차는 연체되고 월 상환액의 정수배로 납부할 수 있다.
 - 범위 안의 금융 동작 이벤트와 결과가 Alloy를 통해 자동 수집되어 Loki와 Prometheus에서 조회된다.
 - Grafana에서 금융 이벤트와 기본 지표를 확인할 수 있다.
+- 개발과 검증은 Docker Compose의 MariaDB와 샘플 데이터로 실행한다.
 
 ## Open questions
 

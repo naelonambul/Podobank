@@ -8,9 +8,7 @@ WORKDIR /app
 COPY pyproject.toml README.md ./
 COPY backend ./backend
 
-RUN python -m pip install --no-cache-dir . \
-    && mkdir -p /var/lib/podobank \
-    && chown 10001:10001 /var/lib/podobank
+RUN python -m pip install --no-cache-dir .
 
 USER 10001:10001
 
