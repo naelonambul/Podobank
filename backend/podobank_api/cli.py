@@ -1,4 +1,5 @@
 import argparse
+import os
 import sys
 from collections.abc import Sequence
 from datetime import UTC, date, datetime
@@ -13,6 +14,7 @@ from podobank_api.database import (
     validate_reset_target,
 )
 from podobank_api.features.loans.service import LoanService
+from podobank_api.features.observability.events import configure_financial_event_logging
 from podobank_api.settings import Settings
 
 
@@ -59,6 +61,10 @@ def main(argv: Sequence[str] | None = None) -> int:
     try:
         settings = Settings.from_environment()
         if arguments.command == "process-repayments":
+            configure_financial_event_logging(
+                os.environ.get("FINANCIAL_EVENTS_PATH"),
+                wait_on_exit=False,
+            )
             engine = create_database_engine(settings.database_url)
             try:
                 service = LoanService(engine)

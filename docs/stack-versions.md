@@ -4,8 +4,8 @@ Version audit date: 2026-11-01.
 
 Use the latest upstream LTS line when the project publishes one. Otherwise use
 the current supported stable release/channel. Pin exact versions in container
-images and lockfiles. Re-check upstream support and patch levels before adding
-the UI and observability services; those services are not configured yet.
+images and lockfiles. The observability services use the audited versions below;
+re-check upstream support and patch levels before changing a pin or adding the UI.
 
 | Component | Selected version | Upstream support policy |
 |---|---:|---|

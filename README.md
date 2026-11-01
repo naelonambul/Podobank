@@ -1,6 +1,6 @@
 # 포도뱅크 (PodoBank)
 
-개발 부트캠프 팀 포트폴리오용 가상 은행 프로젝트입니다. 백엔드는 FastAPI와 MariaDB를 사용하고 SQLAlchemy Core로 SQL을 직접 실행합니다. UI와 관측 스택은 백엔드 단계 뒤에 추가합니다.
+개발 부트캠프 팀 포트폴리오용 가상 은행 프로젝트입니다. 백엔드는 FastAPI와 MariaDB를 사용하고 SQLAlchemy Core로 SQL을 직접 실행합니다. 관측 스택은 Docker Compose로 함께 실행하며 UI는 후속 단계에서 추가합니다.
 
 ## 백엔드 개발 환경
 
@@ -12,6 +12,18 @@ docker compose up --build
 ```
 
 `.env`가 이미 있으면 덮어쓰지 말고 `.env.example`의 새 설정 항목을 직접 추가합니다. MariaDB는 Oracle SQL 모드와 엄격한 데이터 검사를 켠 채 실행되며, 데이터는 `mariadb_data` 영속 볼륨에 보관됩니다. FastAPI는 `http://localhost:8000`에서 실행되고 `/health`가 상태를 반환합니다. API 시작은 기존 DB 스키마나 데이터를 변경하지 않습니다.
+
+#### 금융 이벤트 관측
+
+Compose는 금융 서비스 결과를 JSONL 이벤트 파일에 기록하고 Alloy가 Loki 로그와 Prometheus 카운터로 전달합니다. Grafana는 `http://localhost:${GRAFANA_PORT:-3000}`에서 열립니다. 로그인 계정과 암호는 `.env`의 `GRAFANA_ADMIN_USER`와 `GRAFANA_ADMIN_PASSWORD`이며, 예시 암호는 로컬 데모용이므로 `.env`에서 바꿀 수 있습니다. `PodoBank Financial Operations` 대시보드에는 성공·실패 추이와 최근 이벤트가 표시됩니다.
+
+Loki는 로그를 30일, Prometheus는 지표를 15일 보관합니다. 원본 JSONL 입력은 별도의 `financial_events` named volume에 보관되고 자동 삭제되지 않습니다. 표준 `docker compose down`은 볼륨을 보존합니다. 원본 이벤트를 정리할 때는 Compose 프로젝트의 `financial_events` 볼륨만 명시적으로 제거합니다. 관측 컨테이너 포트는 호스트에 공개되지 않고 Grafana만 loopback에 바인딩됩니다.
+
+관측 설정과 수집 흐름을 별도 Compose 프로젝트에서 확인하려면 다음을 실행합니다. 이 검증은 임시 환경 파일과 볼륨을 사용하고 완료 후 해당 프로젝트만 정리합니다.
+
+```sh
+python3 scripts/verify_observability.py --smoke
+```
 
 최초 실행은 다음 명령으로 스키마와 기본 시드 데이터를 준비합니다. 이 명령은 기존 테이블 구조와 데이터를 보존하며, 테이블 구조를 변경하지 않습니다. 개발 단계에서 스키마 정의가 달라지면 마이그레이션을 유지하지 않고 아래 `reset-db` 명령으로 `podobank_dev`를 비운 뒤 새 스키마를 생성합니다.
 

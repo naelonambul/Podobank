@@ -19,6 +19,15 @@
       "timeout_seconds": 600,
       "paths": ["backend/**", "compose.yaml", "Dockerfile", ".dockerignore", ".env.example", ".gitignore", "pyproject.toml", "uv.lock", "checks.json", "README.md", "scripts/verify_backend.py"],
       "requires": ["python3", "git"]
+    },
+    {
+      "id": "podobank-observability-smoke",
+      "group": "mariadb",
+      "argv": ["python3", "scripts/verify_observability.py", "--smoke"],
+      "cwd": ".",
+      "timeout_seconds": 900,
+      "paths": ["compose.yaml", "Dockerfile", ".env.example", "README.md", "docs/stack-versions.md", "monitoring/**", "backend/podobank_api/app.py", "backend/podobank_api/cli.py", "backend/podobank_api/features/transactions/service.py", "backend/podobank_api/features/loans/service.py", "backend/podobank_api/features/observability/**", "backend/tests/test_observability.py", "scripts/verify_observability.py", "checks.json"],
+      "requires": ["python3", "git", "docker"]
     }
   ]
 }
