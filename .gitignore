@@ -81,6 +81,12 @@ __pycache__/
 .nox/
 .venv/
 venv/
+*.egg-info/
+*.dist-info/
+/data/
+*.db
+*.sqlite
+*.sqlite3
 
 # -----------------------------------------------------------------------------
 # Apple / Xcode / Swift

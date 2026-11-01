@@ -1,4 +1,44 @@
-# SDLC Project Template
+# 포도뱅크 (PodoBank)
+
+개발 부트캠프 팀 포트폴리오용 가상 은행 프로젝트입니다. 백엔드는 FastAPI와 SQLite로 시작하며 SQLAlchemy Core로 SQL을 직접 실행합니다. UI와 관측 스택은 백엔드 단계 뒤에 추가합니다.
+
+## 백엔드 개발 환경
+
+### Docker Compose
+
+```sh
+cp .env.example .env
+docker compose up --build
+```
+
+FastAPI는 `http://localhost:8000`에서 실행되고 `/health`가 상태를 반환합니다. SQLite 파일은 `podobank_data` 영속 볼륨에 저장됩니다. Compose는 개발용 SQLite를 사용하며 `reset-db` 명령으로 스키마와 샘플 데이터를 다시 만들 수 있습니다.
+
+Compose DB를 비우고 스키마만 다시 만들려면 `docker compose run --rm api podobank-api reset-db --no-seed`를 실행합니다.
+
+### 로컬 Python 환경
+
+```sh
+python3 -m venv .venv
+. .venv/bin/activate
+python -m pip install -e ".[dev]"
+podobank-api init-db
+uvicorn podobank_api.app:app --reload
+```
+
+기본 로컬 DB는 `data/podobank.db`입니다. 개발 SQLite를 샘플 데이터와 함께 초기화하려면 `podobank-api reset-db`, 스키마만 만들려면 `podobank-api reset-db --no-seed`를 실행합니다. 초기화 명령은 `APP_ENV=development`인 SQLite에서만 허용됩니다.
+
+### 품질 검사
+
+```sh
+python3 scripts/verify_backend.py --suite sqlite
+python3 scripts/repo.py verify --change podobank-backend --full
+```
+
+백엔드 검증 스크립트는 프로젝트가 선언한 도구를 임시 Python 가상환경에 설치한 뒤 Ruff lint, Ruff format 검사와 SQLite 단위 테스트를 실행합니다.
+
+---
+
+## Repository workflow
 
 A small, agent-neutral starter repository for an AI-native software development lifecycle.
 
