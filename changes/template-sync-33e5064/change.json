@@ -1,0 +1,30 @@
+{
+  "schema": 1,
+  "id": "template-sync-33e5064",
+  "kind": "repository",
+  "title": "Sync template through 33e5064",
+  "base": {
+    "ref": "main",
+    "commit": "24f5d9b27845ba56b99681105c2601a4d65fec3a"
+  },
+  "baseline": {},
+  "write_scope": [
+    "AGENTS.md",
+    ".github/workflows/repository.yml",
+    "scripts/tests/test_workflow.py",
+    "docs/host-setup.md",
+    "docs/agent-surfaces.md",
+    ".agents/skills/sdlc-artifacts/SKILL.md",
+    ".agents/skills/repository-quality/SKILL.md"
+  ],
+  "approvals": [
+    {
+      "artifact": "plan.md",
+      "sha256": "sha256:52ae1ebe67654ec3ff74150be22d7b7de261aa02c686750837d873c564b8c16a",
+      "by": "naelonambul",
+      "at": "2026-11-01T14:34:53Z",
+      "write_scope_sha256": "sha256:23a6f8aaa3eb2c584e427734766c2a5bef82f17b9b8b2d44ae6303cb1f065c66",
+      "note": "\uc2b9\uc778"
+    }
+  ]
+}
