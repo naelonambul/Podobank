@@ -1,0 +1,11 @@
+{
+  "schema": 1,
+  "baseline": {
+    "spec.md": "sha256:72d755624c917727f3f33d3de6c3a5e061a744802dd0090d5ed62ac09b2fe963"
+  },
+  "packet_sha256": "sha256:67d549c5834a9413773058e01d023bb7a529e49d28ec3afc672997a5e2dc42cb",
+  "tree_sha256": "sha256:249b352461cbe8b2dddf9abf99857ea6bd878f758052b3986edad28dc7dd10bf",
+  "evidence": [
+    ".evidence/20261101T164901804241Z/evidence.json sha256:8d5b5e784f85f0b00e9398427e0deb5e24dd447920af06a2c8b610f50a134aab"
+  ]
+}
