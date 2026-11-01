@@ -1,6 +1,9 @@
 services:
   db:
     image: mariadb:11.8.9
+    command:
+      - mariadbd
+      - --sql-mode=ORACLE,STRICT_TRANS_TABLES,ERROR_FOR_DIVISION_BY_ZERO,NO_ENGINE_SUBSTITUTION
     env_file:
       - .env
     environment:
@@ -23,6 +26,16 @@ services:
     environment:
       APP_ENV: ${APP_ENV:-development}
       DATABASE_URL: ${COMPOSE_DATABASE_URL:?Set COMPOSE_DATABASE_URL in the local .env file}
+      API_ORIGIN: ${API_ORIGIN:-http://localhost:8000}
+      KAKAO_REST_API_KEY: ${KAKAO_REST_API_KEY:-replace-with-kakao-rest-api-key}
+      KAKAO_CLIENT_SECRET: ${KAKAO_CLIENT_SECRET:-replace-with-kakao-client-secret}
+      KAKAO_REDIRECT_URI: ${KAKAO_REDIRECT_URI:-http://localhost:5173/auth/kakao/callback}
+      JWT_SECRET: ${JWT_SECRET:-development-only-change-this-secret-32-chars}
+      JWT_LIFETIME_MINUTES: ${JWT_LIFETIME_MINUTES:-120}
+      AUTH_COOKIE_SECURE: ${AUTH_COOKIE_SECURE:-false}
+      FRONTEND_ORIGINS: ${FRONTEND_ORIGINS:-http://localhost:5173,http://localhost:8080}
+      BANK_EMPLOYEE_PHONE: ${BANK_EMPLOYEE_PHONE:-01000000002}
+      BANK_EMPLOYEE_PASSWORD: ${BANK_EMPLOYEE_PASSWORD:-local-demo-employee-password}
     depends_on:
       db:
         condition: service_healthy

@@ -47,22 +47,29 @@ def create_database_engine(database_url: str) -> Engine:
     )
 
 
-def initialize_database(engine: Engine, *, include_seed: bool = True) -> None:
+def initialize_database(
+    engine: Engine,
+    *,
+    include_seed: bool = True,
+    employee_phone: str = "",
+    employee_password: str = "",
+) -> None:
     if engine.dialect.name != "mysql" or engine.dialect.driver != "pymysql":
         raise DatabaseSafetyError("the backend requires a MariaDB connection using PyMySQL")
+    if include_seed and (not employee_phone or len(employee_password) < 8):
+        raise DatabaseSafetyError("valid bank employee seed credentials are required")
 
     with engine.connect() as connection:
-        existing_table_count = connection.execute(
-            text("SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = DATABASE()")
-        ).scalar_one()
-        connection.commit()
-
         create_schema(connection)
         connection.commit()
 
-        if include_seed and existing_table_count == 0:
+        if include_seed:
             with connection.begin():
-                seed_default_data(connection)
+                seed_default_data(
+                    connection,
+                    employee_phone=employee_phone,
+                    employee_password=employee_password,
+                )
 
 
 def reset_database(
@@ -70,8 +77,12 @@ def reset_database(
     *,
     app_env: str,
     include_seed: bool = True,
+    employee_phone: str = "",
+    employee_password: str = "",
 ) -> None:
     validate_reset_target(app_env, str(engine.url))
+    if include_seed and (not employee_phone or len(employee_password) < 8):
+        raise DatabaseSafetyError("valid bank employee seed credentials are required")
 
     with engine.connect() as connection:
         connection.exec_driver_sql("SET FOREIGN_KEY_CHECKS = 0")
@@ -98,7 +109,11 @@ def reset_database(
 
             if include_seed:
                 with connection.begin():
-                    seed_default_data(connection)
+                    seed_default_data(
+                        connection,
+                        employee_phone=employee_phone,
+                        employee_password=employee_password,
+                    )
         finally:
             if connection.in_transaction():
                 connection.rollback()
