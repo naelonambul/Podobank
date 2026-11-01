@@ -14,10 +14,10 @@ def verify_password(password_hash: str | None, password: str) -> bool:
     if not password_hash:
         try:
             _PASSWORD_HASHER.verify(_DUMMY_PASSWORD_HASH, password)
-        except InvalidHashError, VerificationError:
+        except (InvalidHashError, VerificationError):
             pass
         return False
     try:
         return _PASSWORD_HASHER.verify(password_hash, password)
-    except InvalidHashError, VerificationError:
+    except (InvalidHashError, VerificationError):
         return False

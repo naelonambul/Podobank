@@ -9,7 +9,7 @@ the UI and observability services; those services are not configured yet.
 
 | Component | Selected version | Upstream support policy |
 |---|---:|---|
-| Python | 3.15.2 | Current stable bugfix branch; Python uses a five-year lifecycle rather than an LTS label. |
+| Python | 3.13.18 | Security-only support through 2029-10; official binary installers ended with 3.13.17. Local development accepts Python 3.13.x; use the newest patch available. |
 | uv | 0.13.6 | Current stable project package manager; no separate LTS line. |
 | MariaDB | 12.3.3 | Latest Community LTS line. |
 | FastAPI | 0.162.0 | No separate LTS line; locked stable release. |
