@@ -29,11 +29,11 @@ services:
       API_ORIGIN: ${API_ORIGIN:-http://localhost:8000}
       KAKAO_REST_API_KEY: ${KAKAO_REST_API_KEY:-replace-with-kakao-rest-api-key}
       KAKAO_CLIENT_SECRET: ${KAKAO_CLIENT_SECRET:-replace-with-kakao-client-secret}
-      KAKAO_REDIRECT_URI: ${KAKAO_REDIRECT_URI:-http://localhost:5173/auth/kakao/callback}
+      KAKAO_REDIRECT_URI: ${KAKAO_REDIRECT_URI:-http://localhost:8081/auth/kakao/callback}
       JWT_SECRET: ${JWT_SECRET:-development-only-change-this-secret-32-chars}
       JWT_LIFETIME_MINUTES: ${JWT_LIFETIME_MINUTES:-120}
       AUTH_COOKIE_SECURE: ${AUTH_COOKIE_SECURE:-false}
-      FRONTEND_ORIGINS: ${FRONTEND_ORIGINS:-http://localhost:5173,http://localhost:8080}
+      FRONTEND_ORIGINS: ${FRONTEND_ORIGINS:-http://localhost:8081,http://localhost:5173}
       BANK_EMPLOYEE_PHONE: ${BANK_EMPLOYEE_PHONE:-01000000002}
       BANK_EMPLOYEE_PASSWORD: ${BANK_EMPLOYEE_PASSWORD:-local-demo-employee-password}
       FINANCIAL_EVENTS_PATH: /var/log/podobank/financial-events.jsonl
@@ -54,6 +54,14 @@ services:
       timeout: 3s
       retries: 3
       start_period: 10s
+
+  frontend:
+    build:
+      context: ./frontend
+      args:
+        VITE_API_ORIGIN: ${VITE_API_ORIGIN:-http://localhost:8000}
+    ports:
+      - "127.0.0.1:${FRONTEND_PORT:-8081}:80"
 
   alloy:
     image: grafana/alloy:v1.21.3

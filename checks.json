@@ -28,6 +28,33 @@
       "timeout_seconds": 900,
       "paths": ["compose.yaml", "Dockerfile", ".env.example", "README.md", "docs/stack-versions.md", "monitoring/**", "backend/podobank_api/app.py", "backend/podobank_api/cli.py", "backend/podobank_api/features/transactions/service.py", "backend/podobank_api/features/loans/service.py", "backend/podobank_api/features/observability/**", "backend/tests/test_observability.py", "scripts/verify_observability.py", "checks.json"],
       "requires": ["python3", "git", "docker"]
+    },
+    {
+      "id": "podobank-ui-quality",
+      "group": "frontend",
+      "argv": ["python3", "scripts/verify_ui.py", "--quality"],
+      "cwd": ".",
+      "timeout_seconds": 900,
+      "paths": ["frontend/**", "compose.yaml", ".env.example", "README.md", "docs/stack-versions.md", "scripts/verify_ui.py", "checks.json", ".agents/skills/verify-podobank-ui/**", ".claude/skills/verify-podobank-ui", ".github/workflows/repository.yml"],
+      "requires": ["python3", "git", "node", "npm"]
+    },
+    {
+      "id": "podobank-ui-compose",
+      "group": "frontend",
+      "argv": ["python3", "scripts/verify_ui.py", "--config-only"],
+      "cwd": ".",
+      "timeout_seconds": 120,
+      "paths": ["frontend/**", "compose.yaml", ".env.example", "README.md", "scripts/verify_ui.py", "checks.json", ".github/workflows/repository.yml"],
+      "requires": ["python3", "git", "docker"]
+    },
+    {
+      "id": "podobank-ui-smoke",
+      "group": "frontend",
+      "argv": ["python3", "scripts/verify_ui.py", "--smoke"],
+      "cwd": ".",
+      "timeout_seconds": 1500,
+      "paths": ["frontend/**", "compose.yaml", ".env.example", "README.md", "docs/stack-versions.md", "scripts/verify_ui.py", "checks.json", ".agents/skills/verify-podobank-ui/**", ".claude/skills/verify-podobank-ui", ".github/workflows/repository.yml"],
+      "requires": ["python3", "git", "docker"]
     }
   ]
 }
