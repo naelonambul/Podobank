@@ -73,6 +73,16 @@ docker compose exec api podobank-api init-db
 
 개발 환경 초기화는 데모 고객과 계좌, 은행 직원 계정을 준비합니다. 직원 로그인은 `.env`의 `BANK_EMPLOYEE_PHONE`과 `BANK_EMPLOYEE_PASSWORD`를 사용합니다. Kakao 로그인을 쓰려면 Kakao Developers의 REST API 키, 클라이언트 시크릿, 등록된 리다이렉트 URI를 `.env`에 넣습니다.
 
+수취인 검색, 거래 내역, 대출 심사 화면에서 대량 샘플을 확인하려면 먼저 `init-db`를 실행한 다음 개발 환경에서만 아래 명령을 명시적으로 실행합니다. 이 명령은 고객 10,000명, 계좌 활동, 대출 신청과 상환 일정을 추가하며 반복 실행해도 중복 생성하지 않습니다.
+
+```sh
+docker compose exec api podobank-api seed-demo-data
+```
+
+고객 화면 로그인은 고정 데모 고객 전화번호 `01000000001`과 `.env`의 `DEMO_CUSTOMER_PASSWORD`를 사용합니다. 이 암호는 시드 때 해시로 저장하며 이미 암호가 설정된 데모 고객은 변경하지 않습니다. 나머지 생성 고객은 수취인 검색과 직원 심사 데이터에 쓰이며 로그인 계정은 만들지 않습니다. 기존 `.env`가 있다면 덮어쓰지 말고 `.env.example`의 `DEMO_CUSTOMER_PASSWORD` 항목을 추가하세요.
+
+`reset-db`는 대량 샘플을 다시 만들지 않습니다. 초기화 후 고객·거래·대출 화면에 대량 데이터를 다시 채우려면 `init-db` 다음에 `seed-demo-data`를 실행하세요.
+
 ### 입출금과 이체 API
 
 로그인한 고객은 `POST /transactions/deposit`, `POST /transactions/withdrawal`, `POST /transactions/transfer`를 사용할 수 있습니다. 금액은 양의 정수 원(KRW)입니다. 입금은 데모용 잔액 충전이며 외부 결제망과 연결되지 않습니다. 이체 요청은 `{"destination_account_id": 123, "amount": 10000}` 형식으로 보내며, 대상 ID는 `GET /accounts/recipients` 응답에서 선택합니다. 출금·이체의 잔액 부족은 `409`, 잘못된 금액과 자기 계좌 이체는 `422`를 반환합니다.

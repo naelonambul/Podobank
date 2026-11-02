@@ -35,6 +35,20 @@ def validate_reset_target(app_env: str, database_url: str) -> None:
         raise DatabaseSafetyError("reset-db is restricted to the local MariaDB port 3306")
 
 
+def validate_demo_seed_target(app_env: str, database_url: str) -> None:
+    url = make_url(database_url)
+    if url.drivername != "mysql+pymysql":
+        raise DatabaseSafetyError("seed-demo-data requires the mysql+pymysql driver")
+    if app_env != "development":
+        raise DatabaseSafetyError("seed-demo-data is allowed only for APP_ENV=development")
+    if url.database != "podobank_dev":
+        raise DatabaseSafetyError("seed-demo-data is restricted to the podobank_dev database")
+    if url.host not in {"db", "localhost", "127.0.0.1"}:
+        raise DatabaseSafetyError("seed-demo-data is restricted to a local MariaDB service")
+    if url.port not in {None, 3306}:
+        raise DatabaseSafetyError("seed-demo-data is restricted to the local MariaDB port 3306")
+
+
 def create_database_engine(database_url: str) -> Engine:
     url = make_url(database_url)
     if url.drivername != "mysql+pymysql":
