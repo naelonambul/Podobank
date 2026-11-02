@@ -1,4 +1,5 @@
 const API_ORIGIN = (import.meta.env.VITE_API_ORIGIN || 'http://localhost:8000').replace(/\/$/, '');
+let unauthorizedHandler;
 const ERROR_MESSAGES = {
   active_loan_exists: '신청 중이거나 상환 중인 대출이 있어요.',
   account_not_found: '계좌를 찾을 수 없습니다.',
@@ -19,6 +20,10 @@ const ERROR_MESSAGES = {
   signup_session_expired: '가입 시간이 만료됐습니다. 카카오 로그인을 다시 시작해 주세요.',
   signup_session_required: '카카오 로그인 후 가입을 이어가 주세요.',
 };
+
+export function setUnauthorizedHandler(handler) {
+  unauthorizedHandler = handler;
+}
 
 export class ApiError extends Error {
   constructor(message, { status = 0, code = 'network_error' } = {}) {
@@ -72,6 +77,7 @@ export async function apiRequest(path, { method = 'GET', body, signal } = {}) {
     } else if (typeof detail?.message === 'string') {
       message = ERROR_MESSAGES[detail.code] || detail.message;
     } else if (Array.isArray(detail)) message = '입력 내용을 확인해 주세요.';
+    if (response.status === 401) await unauthorizedHandler?.();
     throw new ApiError(message, {
       status: response.status,
       code: detail?.code || 'request_failed',

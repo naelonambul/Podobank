@@ -114,25 +114,32 @@ async function submitTransaction() {
     return;
   }
 
+  const submittedTransaction = {
+    mode: mode.value,
+    amount: parsedAmount,
+    destinationAccountId: selectedRecipient.value?.account_id,
+    recipientName: selectedRecipient.value?.name,
+  };
+
   submitting.value = true;
   try {
     let result;
-    if (mode.value === 'deposit') {
-      result = await api.post('/transactions/deposit', { amount: parsedAmount });
-    } else if (mode.value === 'withdrawal') {
-      result = await api.post('/transactions/withdrawal', { amount: parsedAmount });
+    if (submittedTransaction.mode === 'deposit') {
+      result = await api.post('/transactions/deposit', { amount: submittedTransaction.amount });
+    } else if (submittedTransaction.mode === 'withdrawal') {
+      result = await api.post('/transactions/withdrawal', { amount: submittedTransaction.amount });
     } else {
       result = await api.post('/transactions/transfer', {
-        destination_account_id: selectedRecipient.value.account_id,
-        amount: parsedAmount,
+        destination_account_id: submittedTransaction.destinationAccountId,
+        amount: submittedTransaction.amount,
       });
     }
     success.value = {
-      amount: parsedAmount,
+      amount: submittedTransaction.amount,
       balance: result.balance,
       transactionId: result.transaction_id,
-      mode: mode.value,
-      recipient: selectedRecipient.value?.name,
+      mode: submittedTransaction.mode,
+      recipient: submittedTransaction.recipientName,
     };
     amount.value = '';
     confirmTransfer.value = false;
@@ -140,7 +147,6 @@ async function submitTransaction() {
   } catch (requestError) {
     error.value = requestError.message;
     confirmTransfer.value = false;
-    if (requestError.status === 401) await router.replace({ name: 'login' });
   } finally {
     submitting.value = false;
   }
@@ -184,6 +190,7 @@ onMounted(loadTransactionData);
           type="button"
           role="tab"
           :aria-selected="mode === item.id"
+          :disabled="submitting"
           @click="selectMode(item.id)"
         >
           {{ item.label }}
@@ -212,8 +219,13 @@ onMounted(loadTransactionData);
                 inputmode="numeric"
                 autocomplete="off"
                 placeholder="숫자 10자리 이상"
+                :disabled="submitting"
               />
-              <button class="button button-outline" type="submit" :disabled="searching">
+              <button
+                class="button button-outline"
+                type="submit"
+                :disabled="searching || submitting"
+              >
                 {{ searching ? '찾는 중' : '찾기' }}
               </button>
             </div>
@@ -226,6 +238,7 @@ onMounted(loadTransactionData);
               :class="{ chosen: selectedRecipient?.account_id === recipient.account_id }"
               type="button"
               :aria-pressed="selectedRecipient?.account_id === recipient.account_id"
+              :disabled="submitting"
               @click="chooseRecipient(recipient)"
             >
               <span class="recipient-avatar" aria-hidden="true">{{
@@ -277,6 +290,7 @@ onMounted(loadTransactionData);
               autocomplete="off"
               placeholder="0"
               :aria-describedby="mode === 'transfer' ? 'transfer-note' : 'transaction-note'"
+              :disabled="submitting"
               required
             />
             <span aria-hidden="true">원</span>
