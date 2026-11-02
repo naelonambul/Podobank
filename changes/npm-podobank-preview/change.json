@@ -18,6 +18,9 @@
     "docs/deployment/npm-preview.md",
     "checks.json",
     "scripts/verify_ui.py",
+    "backend/podobank_api/cli.py",
+    "backend/podobank_api/demo_credentials.py",
+    "backend/tests/test_database.py",
     "spec.md"
   ],
   "approvals": [
@@ -30,11 +33,11 @@
     },
     {
       "artifact": "plan.md",
-      "sha256": "sha256:d8158e63bea6c7aeda3a523f159337fc1924dfd2cc419ae93644eb2af641ef28",
+      "sha256": "sha256:5ee06fd9d9f373034f5970acd7dc40ffb30fc1cbf3786ff0d642986394d930f8",
       "by": "ckh",
-      "at": "2026-11-02T08:21:33Z",
-      "write_scope_sha256": "sha256:72b0faeeae2bd3f02bec8c5e5eeb3cdd2471241352e581272913cb35238c6ba8",
-      "note": "\uc0ac\uc6a9\uc790 \uc2b9\uc778: plan digest sha256:d8158e63bea6c7aeda3a523f159337fc1924dfd2cc419ae93644eb2af641ef28; \uc2b9\uc778 \u00b7 \uc9c1\uc811 \uad6c\ud604"
+      "at": "2026-11-02T08:38:08Z",
+      "write_scope_sha256": "sha256:9145a3dd3f839ac943bcf757f75465ea680d8ef0b1223bbbe5ea81a942032ce1",
+      "note": "\uc0ac\uc6a9\uc790 \uc2b9\uc778: plan digest sha256:5ee06fd9d9f373034f5970acd7dc40ffb30fc1cbf3786ff0d642986394d930f8; \uc2b9\uc778 \u00b7 \uc9c1\uc811 \uad6c\ud604"
     }
   ]
 }
