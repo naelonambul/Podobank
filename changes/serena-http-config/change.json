@@ -1,0 +1,24 @@
+{
+  "schema": 1,
+  "id": "serena-http-config",
+  "kind": "repository",
+  "title": "Simplify PodoBank Serena MCP configuration",
+  "base": {
+    "ref": "main",
+    "commit": "38eecd1c6fbf79e26f31ab4b8f28a1d8167928ba"
+  },
+  "baseline": {},
+  "write_scope": [
+    ".codex/config.toml"
+  ],
+  "approvals": [
+    {
+      "artifact": "plan.md",
+      "sha256": "sha256:716db35c19737a6c8f9b709db835ff0d5077f1d17af784e7c4c0c1772fb45b00",
+      "by": "ckh",
+      "at": "2026-11-02T05:13:44Z",
+      "write_scope_sha256": "sha256:efee84385969be40e8a875fa76a8eccf060d21f3e392d450b4de93035e456ee9",
+      "note": "Owner approved the revised Serena HTTP MCP configuration plan."
+    }
+  ]
+}
