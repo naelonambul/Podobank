@@ -204,7 +204,8 @@ class DemoSeedTests(unittest.TestCase):
             applications = (
                 connection.execute(
                     text(
-                        "SELECT id, user_id, status, term_months, approved_at "
+                        "SELECT id, user_id, status, principal_amount, monthly_installment, "
+                        "term_months, approved_at "
                         "FROM loan_applications ORDER BY id"
                     )
                 )
@@ -235,6 +236,19 @@ class DemoSeedTests(unittest.TestCase):
                 .mappings()
                 .all()
             )
+            loan_ledger_entries = connection.execute(
+                text(
+                    "SELECT user_id, entry_type, amount FROM ledger_entries "
+                    "WHERE entry_type IN ('loan_disbursement', 'loan_repayment')"
+                )
+            ).all()
+            account_rows = connection.execute(
+                text(
+                    "SELECT a.balance, COALESCE(SUM(l.amount), 0) AS ledger_balance "
+                    "FROM accounts AS a LEFT JOIN ledger_entries AS l ON l.account_id = a.id "
+                    "GROUP BY a.id, a.balance"
+                )
+            ).all()
 
         self.assertEqual(len(applications), SMALL_LOAN_APPLICATION_COUNT)
         self.assertEqual(status_counts, {"pending": 2, "rejected": 2, "repaying": 5, "repaid": 1})
@@ -246,12 +260,31 @@ class DemoSeedTests(unittest.TestCase):
         for row in repayment_rows:
             by_application.setdefault(int(row["loan_application_id"]), []).append(row)
             self.assertGreater(row["amount"], 0)
+        loan_entries_by_user: dict[int, dict[str, list[int]]] = {}
+        for row in loan_ledger_entries:
+            loan_entries_by_user.setdefault(int(row.user_id), {}).setdefault(
+                str(row.entry_type), []
+            ).append(int(row.amount))
+        for row in account_rows:
+            self.assertEqual(row.balance, row.ledger_balance)
+
         for application in applications:
             rows = by_application.get(int(application["id"]), [])
+            loan_entries = loan_entries_by_user.get(int(application["user_id"]), {})
+            disbursements = loan_entries.get("loan_disbursement", [])
+            repayments = loan_entries.get("loan_repayment", [])
             if application["status"] in {"pending", "rejected"}:
                 self.assertEqual(rows, [])
+                self.assertEqual(disbursements, [])
+                self.assertEqual(repayments, [])
                 continue
 
+            self.assertEqual(disbursements, [int(application["principal_amount"])])
+            paid_installments = [row for row in rows if row["status"] == "paid"]
+            self.assertEqual(
+                repayments,
+                [-int(application["monthly_installment"])] * len(paid_installments),
+            )
             expected_dates = demo_seed.repayment_due_dates(
                 application["approved_at"], int(application["term_months"])
             )
