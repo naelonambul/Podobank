@@ -4,6 +4,8 @@ import sys
 from collections.abc import Sequence
 from datetime import UTC, date, datetime
 
+from sqlalchemy import bindparam, text
+from sqlalchemy.engine import Connection
 from sqlalchemy.exc import DBAPIError
 
 from podobank_api.database import (
@@ -11,10 +13,13 @@ from podobank_api.database import (
     create_database_engine,
     initialize_database,
     reset_database,
+    validate_demo_seed_target,
     validate_reset_target,
 )
+from podobank_api.demo_seed import DemoSeedSummary, seed_demo_data
 from podobank_api.features.loans.service import LoanService
 from podobank_api.features.observability.events import configure_financial_event_logging
+from podobank_api.seed import DEMO_ACCOUNT_NUMBER, DEMO_CUSTOMER_PHONE, LOAN_PRODUCTS
 from podobank_api.settings import Settings
 
 
@@ -22,6 +27,10 @@ def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="podobank-api")
     commands = parser.add_subparsers(dest="command", required=True)
     commands.add_parser("init-db", help="create the MariaDB schema and default sample data")
+    commands.add_parser(
+        "seed-demo-data",
+        help="insert the large local development sample dataset",
+    )
 
     reset_parser = commands.add_parser(
         "reset-db",
@@ -42,6 +51,58 @@ def build_parser() -> argparse.ArgumentParser:
         help="UTC processing date in YYYY-MM-DD format (defaults to today)",
     )
     return parser
+
+
+def _require_initialized_default_seed(connection: Connection, settings: Settings) -> None:
+    expected_tables = {
+        "users",
+        "accounts",
+        "ledger_entries",
+        "loan_products",
+        "loan_applications",
+        "loan_repayments",
+    }
+    existing_tables = set(
+        connection.execute(
+            text(
+                "SELECT table_name FROM information_schema.tables "
+                "WHERE table_schema = DATABASE() AND table_type = 'BASE TABLE'"
+            )
+        ).scalars()
+    )
+    if not expected_tables.issubset(existing_tables):
+        raise ValueError("run podobank-api init-db before seed-demo-data")
+
+    demo_seed_exists = connection.execute(
+        text(
+            "SELECT 1 FROM users AS u JOIN accounts AS a ON a.owner_user_id = u.id "
+            "WHERE u.phone_number = :phone_number AND u.role = 'customer' "
+            "AND a.account_number = :account_number"
+        ),
+        {
+            "phone_number": DEMO_CUSTOMER_PHONE,
+            "account_number": DEMO_ACCOUNT_NUMBER,
+        },
+    ).first()
+    employee_exists = connection.execute(
+        text("SELECT 1 FROM users WHERE phone_number = :phone_number AND role = 'bank_employee'"),
+        {"phone_number": settings.bank_employee_phone},
+    ).first()
+    loan_product_codes = {
+        str(row[0])
+        for row in connection.execute(
+            text("SELECT code FROM loan_products WHERE code IN :codes").bindparams(
+                bindparam("codes", expanding=True)
+            ),
+            {"codes": [product["code"] for product in LOAN_PRODUCTS]},
+        ).all()
+    }
+    if (
+        demo_seed_exists is None
+        or employee_exists is None
+        or loan_product_codes != {str(product["code"]) for product in LOAN_PRODUCTS}
+    ):
+        raise ValueError("run podobank-api init-db before seed-demo-data")
 
 
 def _parse_iso_date(value: str) -> date:
@@ -76,6 +137,27 @@ def main(argv: Sequence[str] | None = None) -> int:
                 "Repayment processing completed: "
                 f"processed={result.processed} paid={result.paid} "
                 f"overdue={result.overdue} skipped={result.skipped}"
+            )
+            return 0
+        if arguments.command == "seed-demo-data":
+            validate_demo_seed_target(settings.app_env, settings.database_url)
+            settings.validate_demo_customer_seed()
+            engine = create_database_engine(settings.database_url)
+            try:
+                with engine.begin() as connection:
+                    _require_initialized_default_seed(connection, settings)
+                    summary: DemoSeedSummary = seed_demo_data(
+                        connection,
+                        demo_customer_password=settings.demo_customer_password,
+                    )
+            finally:
+                engine.dispose()
+            action = "already present" if summary.already_present else "seeded"
+            print(
+                f"Demo sample data {action}: customers={summary.customer_count} "
+                f"accounts={summary.account_count} ledger_entries={summary.ledger_entry_count} "
+                f"loan_applications={summary.loan_application_count} "
+                f"repayments={summary.repayment_count}"
             )
             return 0
         if arguments.command == "reset-db":

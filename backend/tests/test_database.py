@@ -8,6 +8,8 @@ from unittest.mock import patch
 from sqlalchemy import inspect, text
 from sqlalchemy.exc import IntegrityError
 
+from podobank_api import cli as cli_module
+from podobank_api import database as database_module
 from podobank_api.cli import main as cli_main
 from podobank_api.database import (
     DatabaseSafetyError,
@@ -16,6 +18,7 @@ from podobank_api.database import (
     reset_database,
     validate_reset_target,
 )
+from podobank_api.demo_seed import DemoSeedSummary
 from podobank_api.features.auth.passwords import verify_password
 from podobank_api.seed import DEMO_ACCOUNT_NUMBER, DEMO_CUSTOMER_PHONE, LOAN_PRODUCTS
 
@@ -368,3 +371,139 @@ class MariaDBSetupTests(unittest.TestCase):
 
         self.assertEqual(exit_code, 2)
         self.assertIn("APP_ENV=development", errors.getvalue())
+
+    def test_seed_demo_data_rejects_unsafe_database_targets(self) -> None:
+        validator = getattr(database_module, "validate_demo_seed_target", None)
+        if not callable(validator):
+            self.fail("validate_demo_seed_target has not been implemented")
+
+        for host in ("db", "localhost", "127.0.0.1"):
+            with self.subTest(allowed_host=host):
+                validator(
+                    "development",
+                    f"mysql+pymysql://user:password@{host}:3306/podobank_dev",
+                )
+
+        rejected_targets = (
+            ("test", "mysql+pymysql://user:password@127.0.0.1:3306/podobank_test"),
+            ("production", "mysql+pymysql://user:password@127.0.0.1:3306/podobank_dev"),
+            (
+                "development",
+                "mysql+pymysql://user:password@remote.example.com:3306/podobank_dev",
+            ),
+            ("development", "mysql+pymysql://user:password@127.0.0.1:3306/podobank_test"),
+            ("development", "mysql+pymysql://user:password@127.0.0.1:3307/podobank_dev"),
+            (
+                "development",
+                "mysql+pymysql://user:password@127.0.0.1:3306/podobank_dev?host=remote.example.com",
+            ),
+            (
+                "development",
+                "mysql+pymysql://user:password@127.0.0.1:3306/podobank_dev?database=podobank_test",
+            ),
+            (
+                "development",
+                "mysql+pymysql://user:password@127.0.0.1:3306/podobank_dev?port=3307",
+            ),
+        )
+        for app_env, database_url in rejected_targets:
+            with self.subTest(app_env=app_env, database_url=database_url):
+                with self.assertRaises(DatabaseSafetyError):
+                    validator(app_env, database_url)
+
+        unsafe_environments = (
+            {
+                "APP_ENV": "test",
+                "DATABASE_URL": "mysql+pymysql://user:password@127.0.0.1:3306/podobank_test",
+            },
+            {
+                "APP_ENV": "production",
+                "DATABASE_URL": "mysql+pymysql://user:password@127.0.0.1:3306/podobank_dev",
+            },
+            {
+                "APP_ENV": "development",
+                "DATABASE_URL": "mysql+pymysql://user:password@remote.example.com:3306/podobank_dev",
+            },
+            {
+                "APP_ENV": "development",
+                "DATABASE_URL": "mysql+pymysql://user:password@127.0.0.1:3306/podobank_dev"
+                "?host=remote.example.com",
+            },
+            {
+                "APP_ENV": "development",
+                "DATABASE_URL": "mysql+pymysql://user:password@127.0.0.1:3306/podobank_test",
+            },
+        )
+        for environment in unsafe_environments:
+            environment["DEMO_CUSTOMER_PASSWORD"] = "local-demo-customer-password"
+            errors = StringIO()
+            with (
+                self.subTest(environment=environment),
+                patch.dict(os.environ, environment),
+                patch("podobank_api.cli.create_database_engine") as engine_factory,
+                redirect_stderr(errors),
+            ):
+                exit_code = cli_main(["seed-demo-data"])
+
+            self.assertEqual(exit_code, 2)
+            engine_factory.assert_not_called()
+
+    def test_seed_demo_data_requires_initialized_database(self) -> None:
+        reset_database(self.engine, app_env="test", include_seed=False)
+        environment = {
+            "APP_ENV": "development",
+            "DATABASE_URL": "mysql+pymysql://user:password@127.0.0.1:3306/podobank_dev",
+            "DEMO_CUSTOMER_PASSWORD": "local-demo-customer-password",
+        }
+        errors = StringIO()
+        with (
+            patch.dict(os.environ, environment),
+            patch("podobank_api.cli.create_database_engine", return_value=self.engine),
+            patch.object(cli_module, "seed_demo_data", create=True) as seed_builder,
+            redirect_stderr(errors),
+        ):
+            exit_code = cli_main(["seed-demo-data"])
+
+        self.assertEqual(exit_code, 2)
+        self.assertIn("init-db", errors.getvalue())
+        seed_builder.assert_not_called()
+
+    def test_seed_demo_data_command_reports_counts_without_secrets(self) -> None:
+        secret = "local-demo-customer-password"
+        summary = DemoSeedSummary(
+            already_present=False,
+            customer_count=10_000,
+            account_count=10_000,
+            ledger_entry_count=200_000,
+            loan_application_count=500,
+            repayment_count=18_000,
+        )
+        environment = {
+            "APP_ENV": "development",
+            "DATABASE_URL": "mysql+pymysql://user:password@127.0.0.1:3306/podobank_dev",
+            "DEMO_CUSTOMER_PASSWORD": secret,
+            "BANK_EMPLOYEE_PHONE": TEST_EMPLOYEE_PHONE,
+        }
+        output = StringIO()
+        with (
+            patch.dict(os.environ, environment),
+            patch("podobank_api.cli.create_database_engine", return_value=self.engine),
+            patch(
+                "podobank_api.cli.seed_demo_data", return_value=summary, create=True
+            ) as seed_builder,
+            redirect_stdout(output),
+        ):
+            exit_code = cli_main(["seed-demo-data"])
+
+        self.assertEqual(exit_code, 0)
+        self.assertIn("customers=10000", output.getvalue())
+        self.assertIn("accounts=10000", output.getvalue())
+        self.assertIn("ledger_entries=200000", output.getvalue())
+        self.assertIn("loan_applications=500", output.getvalue())
+        self.assertIn("repayments=18000", output.getvalue())
+        self.assertNotIn(secret, output.getvalue())
+        seed_builder.assert_called_once()
+        self.assertEqual(
+            seed_builder.call_args.kwargs["demo_customer_password"],
+            secret,
+        )

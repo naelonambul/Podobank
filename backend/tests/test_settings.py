@@ -1,5 +1,10 @@
+import os
 import unittest
+from contextlib import redirect_stderr
+from io import StringIO
+from unittest.mock import patch
 
+from podobank_api.cli import main as cli_main
 from podobank_api.settings import Settings
 
 
@@ -35,6 +40,47 @@ class ProductionSecuritySettingsTests(unittest.TestCase):
 
         with self.assertRaisesRegex(ValueError, "same hostname"):
             settings.validate_application_security()
+
+
+class DemoCustomerSeedSettingsTests(unittest.TestCase):
+    def _settings(self, demo_customer_password: str = "") -> Settings:
+        return Settings.from_environment(
+            {
+                "APP_ENV": "development",
+                "DATABASE_URL": "mysql+pymysql://user:password@localhost:3306/podobank_dev",
+                "DEMO_CUSTOMER_PASSWORD": demo_customer_password,
+            }
+        )
+
+    def test_seed_demo_data_requires_demo_password(self) -> None:
+        settings = self._settings()
+        validator = getattr(settings, "validate_demo_customer_seed", None)
+        if not callable(validator):
+            self.fail("Settings.validate_demo_customer_seed has not been implemented")
+
+        with self.assertRaisesRegex(ValueError, "at least 8 characters"):
+            validator()
+        with self.assertRaisesRegex(ValueError, "at least 8 characters"):
+            self._settings("short").validate_demo_customer_seed()
+
+        self._settings("local-demo-customer-password").validate_demo_customer_seed()
+
+        errors = StringIO()
+        environment = {
+            "APP_ENV": "development",
+            "DATABASE_URL": "mysql+pymysql://user:password@127.0.0.1:3306/podobank_dev",
+            "DEMO_CUSTOMER_PASSWORD": "short",
+        }
+        with (
+            patch.dict(os.environ, environment),
+            patch("podobank_api.cli.create_database_engine") as engine_factory,
+            redirect_stderr(errors),
+        ):
+            exit_code = cli_main(["seed-demo-data"])
+
+        self.assertEqual(exit_code, 2)
+        self.assertNotIn("short", errors.getvalue())
+        engine_factory.assert_not_called()
 
 
 if __name__ == "__main__":

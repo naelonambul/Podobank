@@ -61,6 +61,7 @@ class Settings:
     frontend_origins: tuple[str, ...]
     bank_employee_phone: str
     bank_employee_password: str
+    demo_customer_password: str
 
     @classmethod
     def from_environment(cls, environ: Mapping[str, str] | None = None) -> "Settings":
@@ -109,6 +110,7 @@ class Settings:
             bank_employee_password=values.get(
                 "BANK_EMPLOYEE_PASSWORD", "local-demo-employee-password"
             ),
+            demo_customer_password=values.get("DEMO_CUSTOMER_PASSWORD", ""),
         )
 
     def validate_application_security(self) -> None:
@@ -151,3 +153,7 @@ class Settings:
             raise ValueError("BANK_EMPLOYEE_PHONE must be set before initializing sample data")
         if len(self.bank_employee_password) < 8:
             raise ValueError("BANK_EMPLOYEE_PASSWORD must contain at least 8 characters")
+
+    def validate_demo_customer_seed(self) -> None:
+        if len(self.demo_customer_password) < 8:
+            raise ValueError("DEMO_CUSTOMER_PASSWORD must contain at least 8 characters")
