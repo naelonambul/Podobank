@@ -44,7 +44,7 @@
       "argv": ["python3", "scripts/verify_ui.py", "--config-only"],
       "cwd": ".",
       "timeout_seconds": 120,
-      "paths": ["frontend/**", "compose.yaml", ".env.example", "README.md", "scripts/verify_ui.py", "checks.json", ".github/workflows/repository.yml"],
+      "paths": ["frontend/**", "compose.yaml", "compose.npm-preview.yaml", ".env.example", ".env.npm-preview.example", ".env.npm-preview.db.example", "README.md", "scripts/verify_ui.py", "checks.json", ".github/workflows/repository.yml"],
       "requires": ["python3", "git", "docker"]
     },
     {

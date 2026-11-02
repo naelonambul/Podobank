@@ -1,0 +1,22 @@
+services:
+  api:
+    networks:
+      default: {}
+      npm-proxy:
+        aliases:
+          - podobank-api
+
+  frontend:
+    build:
+      args:
+        VITE_API_ORIGIN: /api
+    networks:
+      default: {}
+      npm-proxy:
+        aliases:
+          - podobank-frontend
+
+networks:
+  npm-proxy:
+    name: ${NPM_DOCKER_NETWORK:-nginx-proxy-manager}
+    external: true
