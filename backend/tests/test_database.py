@@ -393,6 +393,18 @@ class MariaDBSetupTests(unittest.TestCase):
             ),
             ("development", "mysql+pymysql://user:password@127.0.0.1:3306/podobank_test"),
             ("development", "mysql+pymysql://user:password@127.0.0.1:3307/podobank_dev"),
+            (
+                "development",
+                "mysql+pymysql://user:password@127.0.0.1:3306/podobank_dev?host=remote.example.com",
+            ),
+            (
+                "development",
+                "mysql+pymysql://user:password@127.0.0.1:3306/podobank_dev?database=podobank_test",
+            ),
+            (
+                "development",
+                "mysql+pymysql://user:password@127.0.0.1:3306/podobank_dev?port=3307",
+            ),
         )
         for app_env, database_url in rejected_targets:
             with self.subTest(app_env=app_env, database_url=database_url):
@@ -411,6 +423,11 @@ class MariaDBSetupTests(unittest.TestCase):
             {
                 "APP_ENV": "development",
                 "DATABASE_URL": "mysql+pymysql://user:password@remote.example.com:3306/podobank_dev",
+            },
+            {
+                "APP_ENV": "development",
+                "DATABASE_URL": "mysql+pymysql://user:password@127.0.0.1:3306/podobank_dev"
+                "?host=remote.example.com",
             },
             {
                 "APP_ENV": "development",

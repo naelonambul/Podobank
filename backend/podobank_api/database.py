@@ -41,6 +41,8 @@ def validate_demo_seed_target(app_env: str, database_url: str) -> None:
         raise DatabaseSafetyError("seed-demo-data requires the mysql+pymysql driver")
     if app_env != "development":
         raise DatabaseSafetyError("seed-demo-data is allowed only for APP_ENV=development")
+    if url.query:
+        raise DatabaseSafetyError("seed-demo-data does not allow database URL query options")
     if url.database != "podobank_dev":
         raise DatabaseSafetyError("seed-demo-data is restricted to the podobank_dev database")
     if url.host not in {"db", "localhost", "127.0.0.1"}:
