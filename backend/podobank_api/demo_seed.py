@@ -75,6 +75,10 @@ def _customer_phone(customer_index: int) -> str:
     return f"{_CUSTOMER_PHONE_PREFIX}{customer_index:05d}"
 
 
+def _customer_phone_bounds(last_index: int) -> tuple[str, str]:
+    return _customer_phone(1), _customer_phone(last_index)
+
+
 def _customer_account_number(customer_index: int) -> str:
     return f"{_ACCOUNT_NUMBER_PREFIX}{customer_index:06d}"
 
@@ -438,9 +442,12 @@ def _load_generated_customers(
     rows = connection.execute(
         text(
             "SELECT id, name, phone_number, age, gender, marital_status, is_employed, role "
-            "FROM users WHERE phone_number LIKE :phone_prefix ORDER BY phone_number"
+            "FROM users WHERE phone_number BETWEEN :first_phone AND :last_phone "
+            "ORDER BY phone_number"
         ),
-        {"phone_prefix": f"{_CUSTOMER_PHONE_PREFIX}%"},
+        dict(
+            zip(("first_phone", "last_phone"), _customer_phone_bounds(expected_count), strict=True)
+        ),
     ).mappings()
     existing = [dict(row) for row in rows]
     expected = [_generated_customer(index) for index in range(1, expected_count + 1)]
@@ -701,9 +708,16 @@ def seed_demo_data(
         for row in connection.execute(
             text(
                 "SELECT id, name, phone_number, age, gender, marital_status, is_employed, role "
-                "FROM users WHERE phone_number LIKE :phone_prefix ORDER BY phone_number"
+                "FROM users WHERE phone_number BETWEEN :first_phone AND :last_phone "
+                "ORDER BY phone_number"
             ),
-            {"phone_prefix": f"{_CUSTOMER_PHONE_PREFIX}%"},
+            dict(
+                zip(
+                    ("first_phone", "last_phone"),
+                    _customer_phone_bounds(customer_count - 1),
+                    strict=True,
+                )
+            ),
         ).mappings()
     ]
     if len(inserted_customers) != customer_count - 1:

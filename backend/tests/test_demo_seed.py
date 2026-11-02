@@ -57,6 +57,44 @@ class DemoSeedTests(unittest.TestCase):
                 loan_application_count=loan_application_count,
             )
 
+    def test_seed_coexists_with_existing_ui_verification_customer(self) -> None:
+        with self.engine.begin() as connection:
+            fixture_id = int(
+                connection.execute(
+                    text(
+                        "INSERT INTO users (name, phone_number, age, gender, marital_status, "
+                        "is_employed, role) VALUES ('UI 수취인 fixture', '01099990001', 30, "
+                        "'female', 'single', 1, 'customer')"
+                    )
+                ).lastrowid
+            )
+            connection.execute(
+                text(
+                    "INSERT INTO accounts (owner_user_id, account_number, balance) "
+                    "VALUES (:owner_user_id, '200000000001', 0)"
+                ),
+                {"owner_user_id": fixture_id},
+            )
+
+        summary = self._seed(loan_application_count=0)
+
+        with self.engine.connect() as connection:
+            fixture = connection.execute(
+                text(
+                    "SELECT u.id, u.phone_number, a.account_number FROM users AS u "
+                    "JOIN accounts AS a ON a.owner_user_id = u.id WHERE u.id = :user_id"
+                ),
+                {"user_id": fixture_id},
+            ).one()
+            customer_count = connection.execute(
+                text("SELECT COUNT(*) FROM users WHERE role = 'customer'")
+            ).scalar_one()
+
+        self.assertEqual(fixture.phone_number, "01099990001")
+        self.assertEqual(fixture.account_number, "200000000001")
+        self.assertEqual(customer_count, SMALL_CUSTOMER_COUNT + 1)
+        self.assertEqual(summary.customer_count, SMALL_CUSTOMER_COUNT)
+
     def test_small_seed_creates_fixed_customer_and_one_account_per_customer(self) -> None:
         summary = self._seed(loan_application_count=0)
 
