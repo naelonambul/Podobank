@@ -1,6 +1,44 @@
 # 포도뱅크 (PodoBank)
 
-개발 부트캠프 팀 포트폴리오용 가상 은행 프로젝트입니다. 백엔드는 FastAPI와 MariaDB를 사용하고 SQLAlchemy Core로 SQL을 직접 실행합니다. 관측 스택은 Docker Compose로 함께 실행하며 UI는 후속 단계에서 추가합니다.
+개발 부트캠프 팀 포트폴리오용 가상 은행 프로젝트입니다. 백엔드는 FastAPI와 MariaDB를 사용하고 SQLAlchemy Core로 SQL을 직접 실행합니다. Grafana Alloy, Loki, Prometheus, Grafana는 Docker Compose로 함께 실행합니다. 고객·직원용 모바일 UI는 Vue 3와 Nginx로 제공합니다.
+
+## 모바일 웹 앱
+
+Node.js `26.13.0`을 사용합니다. 프로젝트의 런타임 버전은 `frontend/.nvmrc`에 고정되어 있습니다. 일반적인 실행은 아래와 같습니다.
+
+```sh
+cp -n .env.example .env
+docker compose up --build
+```
+
+앱은 `http://localhost:8081`에서 열립니다. 브라우저는 FastAPI `http://localhost:8000`에 직접 요청하고 HttpOnly 쿠키를 포함합니다. Nginx는 정적 파일만 제공하며 API 프록시로 동작하지 않습니다. 두 서비스의 origin과 API 주소는 `.env`의 `FRONTEND_ORIGINS`와 `VITE_API_ORIGIN`으로 설정합니다. 포트를 변경하면 두 값을 함께 갱신하세요.
+
+개발 서버는 다음처럼 실행합니다.
+
+```sh
+cd frontend
+npm ci
+npm run dev
+```
+
+개발 서버는 `http://localhost:5173`에서 실행됩니다. `.env`의 `FRONTEND_ORIGINS`에 기본 개발 origin이 포함되어 있습니다. 카카오 로그인을 개발 서버에서 사용할 때는 Kakao Developers에 등록한 redirect URI와 `.env`의 `KAKAO_REDIRECT_URI`를 `http://localhost:5173/auth/kakao/callback`으로 맞추세요. Compose 앱은 기본값으로 `http://localhost:8081/auth/kakao/callback`을 사용합니다.
+
+고객은 Kakao로 가입·로그인하거나 가입 후 설정한 휴대전화번호와 비밀번호로 로그인합니다. 직원은 `.env`의 `BANK_EMPLOYEE_PHONE` 및 `BANK_EMPLOYEE_PASSWORD`를 이용해 로그인하고 대출 신청을 심사합니다. 샘플 고객의 비밀번호는 기본으로 설정되어 있지 않으므로 Kakao 가입을 완료하거나 본인이 설정한 로컬 비밀번호를 사용하세요.
+
+프론트엔드 품질 검사는 Node 런타임에서 실행합니다.
+
+```sh
+cd frontend
+npm ci
+npm run check
+npm run build
+```
+
+격리된 MariaDB·API·Nginx 인스턴스와 384 × 832 브라우저 스모크는 다음 명령으로 실행합니다. 검증 전용 Compose 프로젝트와 임시 데이터만 제거하며 개발 DB나 기존 볼륨은 사용하지 않습니다.
+
+```sh
+python3 scripts/verify_ui.py --smoke
+```
 
 ## 백엔드 개발 환경
 

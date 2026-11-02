@@ -128,6 +128,36 @@ jobs:
           include-hidden-files: true
           if-no-files-found: ignore
 
+  verify-frontend:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: frontend/.nvmrc
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.13.18"
+      - name: Write PR body
+        if: github.event_name == 'pull_request'
+        env:
+          PR_BODY: ${{ github.event.pull_request.body }}
+        run: printf '%s\n' "$PR_BODY" > /tmp/pr-body.md
+      - run: python3 scripts/repo.py verify --group frontend $VERIFY_ARGS $REPO_ARGS
+      - if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: evidence-frontend
+          path: .evidence/
+          include-hidden-files: true
+          if-no-files-found: ignore
+
   # Fails a pull request not authored by the agent identity. An unset
   # AGENT_LOGIN passes with a notice; see docs/host-setup.md.
   identity:
@@ -157,7 +187,7 @@ jobs:
   # skipped, cancelled, or failed jobs all fail the summary.
   summary:
     if: always()
-    needs: [control-plane-tests, status, verify-core, verify-mariadb, identity]
+    needs: [control-plane-tests, status, verify-core, verify-mariadb, verify-frontend, identity]
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:

@@ -1,0 +1,36 @@
+{
+  "schema": 1,
+  "id": "podobank-ui",
+  "kind": "implementation",
+  "title": "Build the Vue banking interface and Nginx runtime",
+  "base": {
+    "ref": "main",
+    "commit": "6774b8e8311c5f38177c50deba5f81e9b50e710d"
+  },
+  "baseline": {
+    "intent.md": "sha256:713e23285d0340754f840512430a1c1de8dc67bca3018c9bb320a9725d33d420",
+    "spec.md": "sha256:14bc72563206ea2fa08871e9e88b41f9b61550d567f95b6c4483e8abdd912b6e"
+  },
+  "write_scope": [
+    "frontend/**",
+    "compose.yaml",
+    ".env.example",
+    "README.md",
+    "docs/stack-versions.md",
+    "checks.json",
+    "scripts/verify_ui.py",
+    ".agents/skills/verify-podobank-ui/**",
+    ".claude/skills/verify-podobank-ui",
+    ".github/workflows/repository.yml"
+  ],
+  "approvals": [
+    {
+      "artifact": "plan.md",
+      "sha256": "sha256:2c857d2566d756a8d7a35459985cbcab2b356a3c05ec49432688a045b102fd4a",
+      "by": "ckh",
+      "at": "2026-11-02T00:14:31Z",
+      "write_scope_sha256": "sha256:43d9f4d8066afa915eb833c73398594fc9347ff3e4fd6f11c5e68c6b21d92ed8",
+      "note": "\uc2b9\uc778"
+    }
+  ]
+}

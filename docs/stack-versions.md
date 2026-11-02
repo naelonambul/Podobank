@@ -1,6 +1,6 @@
 # Stack Versions
 
-Version audit date: 2026-11-01.
+Version audit date: 2026-11-02.
 
 Use the latest upstream LTS line when the project publishes one. Otherwise use
 the current supported stable release/channel. Pin exact versions in container
@@ -23,6 +23,12 @@ re-check upstream support and patch levels before changing a pin or adding the U
 | Ruff | 0.17.3 | No separate LTS line; locked stable release. |
 | Node.js | 26.13.0 | LTS (`Lithium`); used for the later Vue build. |
 | Vue | 3.5.44 | Current stable release; 3.6 is still a prerelease. |
+| Vue Router | 5.4.0 | Current stable routing package for Vue 3. |
+| Vite | 8.3.5 | Current stable build-tool release; supports the pinned Node.js runtime. |
+| `@vitejs/plugin-vue` | 6.0.10 | Current stable Vue single-file-component plugin; supports Vite 8. |
+| Playwright | 1.64.1 | Current stable browser-test release; pinned in the npm lockfile. |
+| ESLint | 10.14.0 | Current stable JavaScript linter; pinned in the npm lockfile. |
+| Prettier | 3.9.10 | Current stable formatter; pinned in the npm lockfile. |
 | Nginx | 1.30.6 | Stable channel; Nginx does not publish a formal LTS line. |
 | Grafana Alloy | 1.21.3 | Current stable release; no formal LTS line. |
 | Loki | 3.7.9 | Current stable release; no formal LTS line. |
@@ -49,6 +55,12 @@ do not start 11.8 against the modified 12.3 data directory.
 - [MariaDB major-version downgrade guidance](https://mariadb.com/docs/server/server-management/install-and-upgrade-mariadb/downgrading-between-major-versions-of-mariadb)
 - [Node.js 26.13.0 LTS](https://nodejs.org/en/blog/release/v26.13.0)
 - [Vue releases](https://github.com/vuejs/core/releases)
+- [Vue Router releases](https://github.com/vuejs/router/releases)
+- [Vite releases](https://github.com/vitejs/vite/releases)
+- [Vite Vue plugin releases](https://github.com/vitejs/vite-plugin-vue/releases)
+- [Playwright releases](https://github.com/microsoft/playwright/releases)
+- [ESLint releases](https://github.com/eslint/eslint/releases)
+- [Prettier releases](https://github.com/prettier/prettier/releases)
 - [Nginx stable and mainline releases](https://nginx.org/en/download.html)
 - [Grafana Alloy releases](https://github.com/grafana/alloy/releases)
 - [Loki releases](https://github.com/grafana/loki/releases)
