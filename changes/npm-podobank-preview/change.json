@@ -27,6 +27,14 @@
       "by": "ckh",
       "at": "2026-11-02T08:13:48Z",
       "note": "\uc0ac\uc6a9\uc790 \uc2b9\uc778: digest sha256:bbfd06f32d4d71314386b74976330eca7fce1b2982c5f916381f95652b6489a6 \uc124\uacc4 \uc2b9\uc778"
+    },
+    {
+      "artifact": "plan.md",
+      "sha256": "sha256:d8158e63bea6c7aeda3a523f159337fc1924dfd2cc419ae93644eb2af641ef28",
+      "by": "ckh",
+      "at": "2026-11-02T08:21:33Z",
+      "write_scope_sha256": "sha256:72b0faeeae2bd3f02bec8c5e5eeb3cdd2471241352e581272913cb35238c6ba8",
+      "note": "\uc0ac\uc6a9\uc790 \uc2b9\uc778: plan digest sha256:d8158e63bea6c7aeda3a523f159337fc1924dfd2cc419ae93644eb2af641ef28; \uc2b9\uc778 \u00b7 \uc9c1\uc811 \uad6c\ud604"
     }
   ]
 }
