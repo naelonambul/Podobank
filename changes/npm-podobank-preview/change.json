@@ -1,0 +1,32 @@
+{
+  "schema": 1,
+  "id": "npm-podobank-preview",
+  "kind": "behavior",
+  "title": "Serve the demo UI through Nginx Proxy Manager over HTTPS",
+  "base": {
+    "ref": "main",
+    "commit": "d49a3d6ec01f718c8bbaede368c2b4176b541586"
+  },
+  "baseline": {
+    "intent.md": "sha256:713e23285d0340754f840512430a1c1de8dc67bca3018c9bb320a9725d33d420",
+    "spec.md": "sha256:14bc72563206ea2fa08871e9e88b41f9b61550d567f95b6c4483e8abdd912b6e"
+  },
+  "write_scope": [
+    "compose.npm-preview.yaml",
+    ".env.npm-preview.example",
+    ".env.npm-preview.db.example",
+    "docs/deployment/npm-preview.md",
+    "checks.json",
+    "scripts/verify_ui.py",
+    "spec.md"
+  ],
+  "approvals": [
+    {
+      "artifact": "spec.md",
+      "sha256": "sha256:bbfd06f32d4d71314386b74976330eca7fce1b2982c5f916381f95652b6489a6",
+      "by": "ckh",
+      "at": "2026-11-02T08:13:48Z",
+      "note": "\uc0ac\uc6a9\uc790 \uc2b9\uc778: digest sha256:bbfd06f32d4d71314386b74976330eca7fce1b2982c5f916381f95652b6489a6 \uc124\uacc4 \uc2b9\uc778"
+    }
+  ]
+}
