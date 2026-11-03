@@ -7,6 +7,8 @@ from typing import TypeVar
 
 from sqlalchemy.engine import Engine
 
+from podobank_api.features.financial_events.events import build_committed_event
+from podobank_api.features.financial_events.mongodb import write_event_best_effort
 from podobank_api.features.observability.events import record_financial_operation
 from podobank_api.features.transactions import sql
 
@@ -82,6 +84,7 @@ class TransactionService:
                     entry_type="deposit",
                     amount=amount,
                 )
+            self._record_committed_event("deposit")
             return TransactionResult(transaction_id, int(account["id"]), amount, balance + amount)
 
         return self._run("deposit", perform)
@@ -108,6 +111,7 @@ class TransactionService:
                     entry_type="withdrawal",
                     amount=-amount,
                 )
+            self._record_committed_event("withdrawal")
             return TransactionResult(transaction_id, int(account["id"]), amount, balance - amount)
 
         return self._run("withdrawal", perform)
@@ -175,9 +179,21 @@ class TransactionService:
                     entry_type="transfer_in",
                     amount=amount,
                 )
+            self._record_committed_event("transfer")
             return TransactionResult(transaction_id, source_id, amount, balance - amount)
 
         return self._run("transfer", perform)
+
+    @staticmethod
+    def _record_committed_event(operation: str) -> None:
+        event = build_committed_event(operation)
+        try:
+            write_event_best_effort(event)
+        except Exception:
+            logger.warning(
+                "financial_event_mongodb_write_failed operation=%s reason=writer_error",
+                operation,
+            )
 
     @staticmethod
     def _run(operation: str, action: Callable[[], Result]) -> Result:
