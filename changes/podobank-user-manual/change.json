@@ -1,0 +1,28 @@
+{
+  "schema": 1,
+  "id": "podobank-user-manual",
+  "kind": "implementation",
+  "title": "Write Korean PodoBank user manual",
+  "base": {
+    "ref": "main",
+    "commit": "f98bbc974e5ba96a33346511ed24dd7a0c180811"
+  },
+  "baseline": {
+    "intent.md": "sha256:713e23285d0340754f840512430a1c1de8dc67bca3018c9bb320a9725d33d420",
+    "spec.md": "sha256:481dd75bbfda974f74d037ff5c7f6e81fcf74c04d8da026a9aeb8e090faa31ec"
+  },
+  "write_scope": [
+    "docs/user-manual.md",
+    "docs/images/user-manual/**"
+  ],
+  "approvals": [
+    {
+      "artifact": "plan.md",
+      "sha256": "sha256:2113947c440a4673bbc3368d7dac56721e7ff0b1f0b6808f1be0ac37fa33a7df",
+      "by": "owner",
+      "at": "2026-11-03T06:03:26Z",
+      "write_scope_sha256": "sha256:c51a68be0b489d3acea1fa5acdc10ae70024e368e928f4378ab4ee80a16bc35c",
+      "note": "LF \uc815\uaddc\ud654\ub41c \uacc4\ud68d \uc2b9\uc778"
+    }
+  ]
+}
