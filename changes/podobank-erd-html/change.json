@@ -1,0 +1,26 @@
+{
+  "schema": 1,
+  "id": "podobank-erd-html",
+  "kind": "architecture",
+  "title": "Document the current MariaDB schema as an HTML ERD",
+  "base": {
+    "ref": "main",
+    "commit": "a4efe6902fc976d91496dd67a375cd4cf7121dc2"
+  },
+  "baseline": {
+    "intent.md": "sha256:713e23285d0340754f840512430a1c1de8dc67bca3018c9bb320a9725d33d420",
+    "spec.md": "sha256:38b6966a22d5c442d5ab3092ded712adf75d9299531ec4b2133c08cb9472e625"
+  },
+  "write_scope": [
+    "docs/architecture/podobank-current-erd.html"
+  ],
+  "approvals": [
+    {
+      "artifact": "plan.md",
+      "sha256": "sha256:7a37448d817b1ae6239c77abe7668118e756f7b794f35bb6795cca7056dd704e",
+      "by": "ckh",
+      "at": "2026-11-03T22:14:30Z",
+      "write_scope_sha256": "sha256:05a640687a33f5383a9521691da8eddf75a8024c6a97e6f387a49bf297ccf0b2"
+    }
+  ]
+}

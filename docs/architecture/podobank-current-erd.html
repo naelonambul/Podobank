@@ -1,0 +1,791 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta
+      name="description"
+      content="Podobank MariaDB의 실제 6개 테이블, 키, 제약조건과 관계를 보여 주는 ERD."
+    />
+    <title>Podobank · MariaDB ERD</title>
+    <style>
+      :root {
+        color-scheme: light;
+        --ink: #19283d;
+        --muted: #63748a;
+        --line: #d7e0eb;
+        --paper: #f3f6fb;
+        --white: #fff;
+        --blue: #356fe5;
+        --blue-soft: #edf3ff;
+        --teal: #087e78;
+        --teal-soft: #e8f7f4;
+        --violet: #7655c8;
+        --violet-soft: #f1edff;
+        --orange: #bd6e1e;
+        --orange-soft: #fff3e5;
+        --shadow: 0 18px 44px rgb(30 52 83 / 9%);
+      }
+
+      * { box-sizing: border-box; }
+
+      body {
+        margin: 0;
+        color: var(--ink);
+        background:
+          radial-gradient(circle at 5% 0%, rgb(206 224 255 / 55%), transparent 32rem),
+          var(--paper);
+        font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont,
+          "Segoe UI", "Apple SD Gothic Neo", "Noto Sans KR", sans-serif;
+      }
+
+      button, input { font: inherit; }
+      a { color: #245ec5; }
+
+      .page {
+        width: min(1720px, calc(100% - 40px));
+        margin: 0 auto;
+        padding: 30px 0 42px;
+      }
+
+      .topline {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 16px;
+      }
+
+      .eyebrow {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        color: #315b94;
+        font-size: 12px;
+        font-weight: 850;
+        letter-spacing: .12em;
+        text-transform: uppercase;
+      }
+
+      .eyebrow::before {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        background: #18a184;
+        content: "";
+        box-shadow: 0 0 0 4px rgb(24 161 132 / 13%);
+      }
+
+      .architecture-link {
+        color: #52657d;
+        font-size: 13px;
+        font-weight: 700;
+        text-decoration: none;
+      }
+
+      .architecture-link:hover { color: var(--blue); }
+
+      h1 {
+        margin: 11px 0 8px;
+        font-size: clamp(30px, 4vw, 46px);
+        letter-spacing: -.045em;
+        line-height: 1.12;
+      }
+
+      .lead {
+        max-width: 850px;
+        margin: 0;
+        color: var(--muted);
+        font-size: 15px;
+        line-height: 1.7;
+      }
+
+      .meta-row {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 8px;
+        margin-top: 17px;
+      }
+
+      .pill {
+        display: inline-flex;
+        align-items: center;
+        gap: 7px;
+        min-height: 29px;
+        padding: 5px 10px;
+        border: 1px solid #d8e3f0;
+        border-radius: 999px;
+        background: rgb(255 255 255 / 74%);
+        color: #40536d;
+        font-size: 11px;
+        font-weight: 750;
+      }
+
+      .pill strong { color: #20334f; }
+      .pill .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--teal); }
+
+      .toolbar {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 8px;
+        margin: 24px 0 12px;
+        padding: 12px;
+        border: 1px solid #dce5f0;
+        border-radius: 16px;
+        background: rgb(255 255 255 / 82%);
+        box-shadow: 0 8px 24px rgb(30 52 83 / 4%);
+      }
+
+      .search-wrap {
+        position: relative;
+        flex: 1 1 230px;
+        max-width: 360px;
+      }
+
+      .search-wrap::before {
+        position: absolute;
+        top: 10px;
+        left: 12px;
+        color: #78899e;
+        content: "⌕";
+        font-size: 20px;
+        line-height: 1;
+      }
+
+      .search-wrap input {
+        width: 100%;
+        height: 40px;
+        padding: 0 12px 0 36px;
+        border: 1px solid #d5dfeb;
+        border-radius: 10px;
+        outline: none;
+        background: #fff;
+        color: var(--ink);
+        font-size: 13px;
+      }
+
+      .search-wrap input:focus { border-color: #7ea5f2; box-shadow: 0 0 0 3px rgb(53 111 229 / 12%); }
+
+      .tool-button {
+        min-height: 40px;
+        padding: 0 12px;
+        border: 1px solid #d5dfeb;
+        border-radius: 10px;
+        background: #fff;
+        color: #354a66;
+        cursor: pointer;
+        font-size: 12px;
+        font-weight: 750;
+      }
+
+      .tool-button:hover { border-color: #9db7e9; background: #f6f9ff; }
+      .tool-button:focus-visible, a:focus-visible, input:focus-visible { outline: 3px solid rgb(53 111 229 / 38%); outline-offset: 2px; }
+
+      .zoom-status {
+        min-width: 48px;
+        color: #60738b;
+        font-size: 12px;
+        font-variant-numeric: tabular-nums;
+        text-align: center;
+      }
+
+      .logical-toggle {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        min-height: 40px;
+        padding: 0 10px;
+        color: #586b82;
+        font-size: 12px;
+        font-weight: 700;
+        cursor: pointer;
+      }
+
+      .logical-toggle input { accent-color: var(--orange); }
+
+      .legend {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 9px 18px;
+        margin: 12px 2px 14px;
+        color: #53667e;
+        font-size: 11px;
+      }
+
+      .legend-item { display: inline-flex; align-items: center; gap: 7px; }
+      .key-chip { padding: 2px 5px; border-radius: 5px; background: var(--blue-soft); color: #2859b4; font-size: 10px; font-weight: 850; }
+      .key-chip.fk { background: var(--teal-soft); color: #08786f; }
+      .key-chip.unique { background: var(--violet-soft); color: #6849b8; }
+      .key-chip.nullable { background: #f0f2f6; color: #627188; }
+      .line-sample { width: 28px; height: 0; border-top: 2px solid var(--blue); }
+      .line-sample.logical { border-top: 2px dashed var(--orange); }
+      .legend-note { color: #718198; }
+
+      .diagram-viewport {
+        max-height: min(74vh, 1040px);
+        overflow: auto;
+        border: 1px solid #dbe4ef;
+        border-radius: 20px;
+        background:
+          radial-gradient(circle, rgb(115 139 171 / 12%) .8px, transparent .9px) 0 0 / 22px 22px,
+          #f8faff;
+        box-shadow: var(--shadow);
+        scrollbar-color: #b6c5d9 #edf2f8;
+        scrollbar-width: thin;
+      }
+
+      .stage-wrap {
+        position: relative;
+        width: 1680px;
+        height: 1460px;
+      }
+
+      .stage {
+        position: absolute;
+        inset: 0 auto auto 0;
+        width: 1680px;
+        height: 1460px;
+        transform: scale(1);
+        transform-origin: top left;
+      }
+
+      .relations {
+        position: absolute;
+        inset: 0;
+        width: 1680px;
+        height: 1460px;
+        overflow: visible;
+        pointer-events: none;
+      }
+
+      .relation {
+        fill: none;
+        stroke: #5480ce;
+        stroke-width: 2.2;
+        vector-effect: non-scaling-stroke;
+      }
+
+      .relation.logical {
+        stroke: #c47b2a;
+        stroke-dasharray: 8 7;
+      }
+
+      .edge-label {
+        fill: #3e5c8a;
+        font-family: Inter, ui-sans-serif, system-ui, sans-serif;
+        font-size: 12px;
+        font-weight: 760;
+        paint-order: stroke;
+        stroke: #f8faff;
+        stroke-linejoin: round;
+        stroke-width: 6px;
+      }
+
+      .edge-label.logical { fill: #9c5b18; }
+      .edge-cardinality { fill: #475d78; font-size: 11px; font-weight: 850; }
+      .logical-group[hidden] { display: none; }
+
+      .entity {
+        position: absolute;
+        left: var(--x);
+        top: var(--y);
+        width: var(--w);
+        overflow: hidden;
+        border: 1px solid #d2deeb;
+        border-radius: 15px;
+        background: var(--white);
+        box-shadow: 0 12px 26px rgb(38 59 89 / 10%);
+        transition: opacity .16s ease, box-shadow .16s ease, border-color .16s ease;
+      }
+
+      .entity:hover, .entity.is-match { border-color: #8ba9dd; box-shadow: 0 16px 34px rgb(38 75 135 / 16%); }
+      .entity.is-dimmed { opacity: .25; }
+
+      .entity-header {
+        position: relative;
+        padding: 15px 17px 13px;
+        border-bottom: 1px solid #e4ebf3;
+        background: linear-gradient(110deg, #f8fbff, #fff);
+      }
+
+      .entity-tagline {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px;
+        color: #73849a;
+        font-size: 9px;
+        font-weight: 850;
+        letter-spacing: .12em;
+      }
+
+      .entity-count {
+        padding: 3px 7px;
+        border-radius: 999px;
+        background: #edf2f8;
+        color: #61728a;
+        font-size: 9px;
+        letter-spacing: 0;
+      }
+
+      .entity-title {
+        margin: 7px 0 2px;
+        color: #1d3352;
+        font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+        font-size: 17px;
+        font-weight: 850;
+        letter-spacing: -.035em;
+      }
+
+      .entity-subtitle { margin: 0; color: #677991; font-size: 11px; line-height: 1.5; }
+
+      .entity-source {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 5px;
+        padding: 9px 15px 3px;
+        border-bottom: 1px solid #edf1f6;
+      }
+
+      .source-chip {
+        padding: 3px 6px;
+        border-radius: 5px;
+        background: #f1f5fa;
+        color: #526780;
+        font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+        font-size: 9px;
+        font-weight: 750;
+      }
+
+      .fields { margin: 0; padding: 5px 0 8px; list-style: none; }
+
+      .field {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) auto;
+        align-items: center;
+        gap: 6px;
+        min-height: 29px;
+        padding: 4px 14px;
+        border-bottom: 1px solid #f0f3f7;
+      }
+
+      .field:last-child { border-bottom: 0; }
+      .field-main { display: flex; flex-wrap: wrap; align-items: baseline; gap: 5px 9px; min-width: 0; }
+      .field-name { color: #233853; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 11px; font-weight: 780; overflow-wrap: anywhere; }
+      .field-type { color: #7b8ba0; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 9px; }
+      .field-flags { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 3px; }
+      .flag { padding: 2px 4px; border-radius: 4px; background: #f0f3f7; color: #66778b; font-size: 8px; font-weight: 900; white-space: nowrap; }
+      .flag.pk { background: var(--blue-soft); color: #2d5fb8; }
+      .flag.fk { background: var(--teal-soft); color: #08786f; }
+      .flag.uq { background: var(--violet-soft); color: #6849b8; }
+      .flag.null { background: #f0f2f5; color: #748197; }
+      .flag.default { background: #fff4e8; color: #9a5d21; }
+
+      .entity-note {
+        margin: 0;
+        padding: 10px 14px 12px;
+        border-top: 1px solid #e9eef5;
+        background: #fafbfd;
+        color: #65768c;
+        font-size: 10px;
+        line-height: 1.6;
+      }
+
+      .entity-note strong { color: #405873; }
+      .entity-note code { color: #465b76; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 9px; }
+      .entity-note .warn { color: #995a1d; font-weight: 800; }
+
+      .canvas-caption {
+        display: flex;
+        justify-content: space-between;
+        gap: 16px;
+        padding: 11px 4px 0;
+        color: #708198;
+        font-size: 11px;
+        line-height: 1.55;
+      }
+
+      .notes-grid {
+        display: grid;
+        grid-template-columns: minmax(0, 1.4fr) minmax(260px, .8fr);
+        gap: 14px;
+        margin-top: 20px;
+      }
+
+      .note-card {
+        padding: 18px 20px;
+        border: 1px solid #dbe4ef;
+        border-radius: 16px;
+        background: rgb(255 255 255 / 79%);
+      }
+
+      .note-card h2 { margin: 0 0 8px; color: #233853; font-size: 14px; }
+      .note-card p, .note-card li { color: #64768d; font-size: 12px; line-height: 1.7; }
+      .note-card p { margin: 0; }
+      .note-card ul { margin: 8px 0 0; padding-left: 18px; }
+      .note-card a { font-weight: 750; }
+      .source-list { display: grid; gap: 9px; }
+      .source-list p { margin: 0; }
+      .source-list small { display: block; color: #74849a; font-size: 10px; }
+
+      .footer {
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: space-between;
+        gap: 8px 20px;
+        margin-top: 20px;
+        padding-top: 14px;
+        border-top: 1px solid #dce4ee;
+        color: #718198;
+        font-size: 10px;
+      }
+
+      @media (max-width: 760px) {
+        .page { width: min(100% - 24px, 1720px); padding-top: 21px; }
+        .topline { align-items: flex-start; }
+        .architecture-link { max-width: 105px; text-align: right; }
+        h1 { font-size: clamp(24px, 6vw, 30px); }
+        .lead { font-size: 13px; }
+        .toolbar { margin-top: 18px; }
+        .search-wrap { max-width: none; flex-basis: 100%; }
+        .diagram-viewport { max-height: 68vh; border-radius: 14px; }
+        .notes-grid { grid-template-columns: 1fr; }
+        .canvas-caption { display: block; }
+        .canvas-caption span { display: block; margin-top: 4px; }
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        *, *::before, *::after { scroll-behavior: auto !important; transition-duration: .01ms !important; }
+      }
+    </style>
+  </head>
+  <body>
+    <main class="page">
+      <div class="topline">
+        <span class="eyebrow">DATA MODEL · MARIADB</span>
+        <a class="architecture-link" href="./podobank-current-architecture.html">아키텍처 ↗</a>
+      </div>
+      <h1>Podobank 관계형 데이터 모델</h1>
+      <p class="lead">
+        MariaDB에 실제 생성되는 테이블과 제약조건을 기준으로 정리한 ERD입니다.
+        실선은 DB가 강제하는 외래 키, 주황색 점선은 애플리케이션에서만 의미가 있는 논리 참조입니다.
+      </p>
+      <div class="meta-row" aria-label="도식 기준 정보">
+        <span class="pill"><span class="dot"></span><strong>MariaDB</strong> · InnoDB</span>
+        <span class="pill">테이블 <strong>6</strong></span>
+        <span class="pill">기준 스키마 <code>backend/podobank_api/schema.py</code></span>
+        <span class="pill">기준 커밋 <strong>a4efe69</strong></span>
+      </div>
+
+      <section class="toolbar" aria-label="ERD 탐색 도구">
+        <label class="search-wrap">
+          <span class="sr-only" hidden>테이블 또는 컬럼 검색</span>
+          <input id="entity-search" type="search" placeholder="테이블 또는 컬럼 검색" autocomplete="off" />
+        </label>
+        <button class="tool-button" id="zoom-out" type="button" aria-label="축소">−</button>
+        <span class="zoom-status" id="zoom-status" aria-live="polite">100%</span>
+        <button class="tool-button" id="zoom-in" type="button" aria-label="확대">＋</button>
+        <button class="tool-button" id="fit-view" type="button">폭 맞춤</button>
+        <label class="logical-toggle"><input id="logical-toggle" type="checkbox" checked /> 논리 참조 표시</label>
+        <button class="tool-button" id="reset-view" type="button">초기화</button>
+      </section>
+
+      <div class="legend" aria-label="ERD 범례">
+        <span class="legend-item"><span class="key-chip">PK</span> 기본 키</span>
+        <span class="legend-item"><span class="key-chip fk">FK</span> DB 외래 키</span>
+        <span class="legend-item"><span class="key-chip unique">UQ</span> UNIQUE</span>
+        <span class="legend-item"><span class="key-chip nullable">NULL</span> NULL 허용</span>
+        <span class="legend-item"><span class="line-sample"></span> 강제 FK 관계</span>
+        <span class="legend-item"><span class="line-sample logical"></span> 논리 참조 · FK 제약 없음</span>
+        <span class="legend-note">관계 끝의 1, 0..1, 0..N은 각 테이블 기준 건수입니다.</span>
+      </div>
+
+      <section class="diagram-viewport" id="diagram-viewport" aria-label="확대·축소 및 스크롤할 수 있는 ERD 캔버스">
+        <div class="stage-wrap" id="stage-wrap">
+          <div class="stage" id="diagram-stage">
+            <svg class="relations" viewBox="0 0 1680 1460" role="img" aria-labelledby="relationship-title relationship-description">
+              <title id="relationship-title">Podobank MariaDB 테이블 관계</title>
+              <desc id="relationship-description">사용자, 계좌, 대출 상품, 대출 신청, 상환 일정, 원장 테이블의 외래 키와 논리 참조를 연결합니다.</desc>
+              <defs>
+                <marker id="one" viewBox="0 0 10 20" refX="1" refY="10" markerWidth="8" markerHeight="16" orient="auto-start-reverse" markerUnits="strokeWidth">
+                  <path d="M2 1V19" fill="none" stroke="#5480ce" stroke-width="1.8" />
+                </marker>
+                <marker id="many" viewBox="0 0 18 22" refX="17" refY="11" markerWidth="11" markerHeight="14" orient="auto" markerUnits="strokeWidth">
+                  <path d="M1 1L17 11L1 21M1 11H17" fill="none" stroke="#5480ce" stroke-width="1.6" />
+                </marker>
+                <marker id="zero-one" viewBox="0 0 18 22" refX="16" refY="11" markerWidth="11" markerHeight="14" orient="auto-start-reverse" markerUnits="strokeWidth">
+                  <circle cx="4" cy="11" r="3" fill="#f8faff" stroke="#5480ce" stroke-width="1.5" />
+                  <path d="M11 1V21" fill="none" stroke="#5480ce" stroke-width="1.6" />
+                </marker>
+                <marker id="zero-many" viewBox="0 0 24 22" refX="23" refY="11" markerWidth="14" markerHeight="14" orient="auto" markerUnits="strokeWidth">
+                  <circle cx="4" cy="11" r="3" fill="#f8faff" stroke="#5480ce" stroke-width="1.5" />
+                  <path d="M8 1L23 11L8 21M8 11H23" fill="none" stroke="#5480ce" stroke-width="1.5" />
+                </marker>
+                <marker id="logical-one" viewBox="0 0 10 20" refX="1" refY="10" markerWidth="8" markerHeight="16" orient="auto-start-reverse" markerUnits="strokeWidth">
+                  <path d="M2 1V19" fill="none" stroke="#c47b2a" stroke-width="1.8" />
+                </marker>
+                <marker id="logical-zero-many" viewBox="0 0 24 22" refX="23" refY="11" markerWidth="14" markerHeight="14" orient="auto" markerUnits="strokeWidth">
+                  <circle cx="4" cy="11" r="3" fill="#f8faff" stroke="#c47b2a" stroke-width="1.5" />
+                  <path d="M8 1L23 11L8 21M8 11H23" fill="none" stroke="#c47b2a" stroke-width="1.5" />
+                </marker>
+              </defs>
+
+              <g aria-label="DB 외래 키 관계">
+                <path class="relation" d="M640 220H500V300H410" marker-start="url(#one)" marker-end="url(#zero-one)" />
+                <text class="edge-label" x="500" y="207" text-anchor="middle">owner_user_id · UQ FK</text>
+                <text class="edge-cardinality" x="617" y="240">1</text>
+                <text class="edge-cardinality" x="417" y="320">0..1</text>
+
+                <path class="relation" d="M720 590V720" marker-start="url(#one)" marker-end="url(#zero-many)" />
+                <text class="edge-label" x="720" y="653" text-anchor="middle">신청자 · user_id</text>
+                <text class="edge-cardinality" x="732" y="612">1</text>
+                <text class="edge-cardinality" x="732" y="706">0..N</text>
+
+                <path class="relation" d="M930 590V720" marker-start="url(#zero-many)" marker-end="url(#zero-one)" />
+                <text class="edge-label" x="930" y="653" text-anchor="middle">심사자 · reviewed_by</text>
+                <text class="edge-cardinality" x="942" y="612">0..N</text>
+                <text class="edge-cardinality" x="942" y="706">0..1</text>
+
+                <path class="relation" d="M1200 300H1080V650H1000V720" marker-start="url(#one)" marker-end="url(#zero-many)" />
+                <text class="edge-label" x="1140" y="284" text-anchor="middle">product_id</text>
+                <text class="edge-cardinality" x="1208" y="321">1</text>
+                <text class="edge-cardinality" x="982" y="741">0..N</text>
+
+                <path class="relation" d="M1060 1030H1190" marker-start="url(#one)" marker-end="url(#zero-many)" />
+                <text class="edge-label" x="1125" y="1013" text-anchor="middle">신청 → 상환 일정</text>
+                <text class="edge-cardinality" x="1067" y="1051">1</text>
+                <text class="edge-cardinality" x="1173" y="1051">0..N</text>
+              </g>
+
+              <g class="logical-group" id="logical-relations" aria-label="DB 외래 키 제약이 없는 논리 참조">
+                <path class="relation logical" d="M680 590V650H500V730" marker-start="url(#logical-zero-many)" marker-end="url(#logical-one)" />
+                <text class="edge-label logical" x="590" y="638" text-anchor="middle">user_id · FK 제약 없음</text>
+                <text class="edge-cardinality" x="690" y="612">0..N</text>
+                <text class="edge-cardinality" x="482" y="718">1</text>
+
+                <path class="relation logical" d="M300 464V730" marker-start="url(#logical-zero-many)" marker-end="url(#logical-one)" />
+                <text class="edge-label logical" x="315" y="600">account_id · FK 제약 없음</text>
+                <text class="edge-cardinality" x="312" y="485">0..N</text>
+                <text class="edge-cardinality" x="312" y="718">1</text>
+              </g>
+            </svg>
+
+            <article class="entity" id="entity-users" data-search="users 사용자 phone kakao role customer employee" style="--x:640px; --y:72px; --w:390px">
+              <header class="entity-header">
+                <div class="entity-tagline"><span>IDENTITY · ACTOR</span><span class="entity-count">11 columns</span></div>
+                <h2 class="entity-title">users</h2>
+                <p class="entity-subtitle">고객과 직원 계정 · 역할은 role 컬럼으로 구분</p>
+              </header>
+              <div class="entity-source"><span class="source-chip">PK · id</span><span class="source-chip">UQ · phone_number</span><span class="source-chip">UQ · kakao_subject</span></div>
+              <ul class="fields">
+                <li class="field"><span class="field-main"><code class="field-name">id</code><span class="field-type">BIGINT UNSIGNED · AUTO_INCREMENT</span></span><span class="field-flags"><span class="flag pk">PK</span><span class="flag">NN</span></span></li>
+                <li class="field"><span class="field-main"><code class="field-name">name</code><span class="field-type">VARCHAR(120)</span></span><span class="field-flags"><span class="flag">NN</span></span></li>
+                <li class="field"><span class="field-main"><code class="field-name">phone_number</code><span class="field-type">VARCHAR(20)</span></span><span class="field-flags"><span class="flag unique">UQ</span><span class="flag">NN</span></span></li>
+                <li class="field"><span class="field-main"><code class="field-name">kakao_subject</code><span class="field-type">VARCHAR(191)</span></span><span class="field-flags"><span class="flag unique">UQ</span><span class="flag null">NULL</span></span></li>
+                <li class="field"><span class="field-main"><code class="field-name">password_hash</code><span class="field-type">VARCHAR(255)</span></span><span class="field-flags"><span class="flag null">NULL</span></span></li>
+                <li class="field"><span class="field-main"><code class="field-name">age</code><span class="field-type">TINYINT UNSIGNED</span></span><span class="field-flags"><span class="flag">NN</span></span></li>
+                <li class="field"><span class="field-main"><code class="field-name">gender</code><span class="field-type">VARCHAR(16)</span></span><span class="field-flags"><span class="flag">NN</span></span></li>
+                <li class="field"><span class="field-main"><code class="field-name">marital_status</code><span class="field-type">VARCHAR(16)</span></span><span class="field-flags"><span class="flag">NN</span></span></li>
+                <li class="field"><span class="field-main"><code class="field-name">is_employed</code><span class="field-type">TINYINT(1)</span></span><span class="field-flags"><span class="flag">NN</span></span></li>
+                <li class="field"><span class="field-main"><code class="field-name">role</code><span class="field-type">VARCHAR(24)</span></span><span class="field-flags"><span class="flag">NN</span></span></li>
+                <li class="field"><span class="field-main"><code class="field-name">created_at</code><span class="field-type">DATETIME(6)</span></span><span class="field-flags"><span class="flag">NN</span><span class="flag default">DEFAULT CURRENT_TIMESTAMP(6)</span></span></li>
+              </ul>
+              <p class="entity-note"><strong>CHECK:</strong> age 1–120 · gender male/female · marital_status single/married · is_employed 0/1 · role customer/bank_employee</p>
+            </article>
+
+            <article class="entity" id="entity-accounts" data-search="accounts 계좌 owner_user_id account_number balance" style="--x:50px; --y:120px; --w:360px">
+              <header class="entity-header">
+                <div class="entity-tagline"><span>ACCOUNT · BALANCE</span><span class="entity-count">5 columns</span></div>
+                <h2 class="entity-title">accounts</h2>
+                <p class="entity-subtitle">현재 사용자당 계좌는 최대 1개</p>
+              </header>
+              <div class="entity-source"><span class="source-chip">PK · id</span><span class="source-chip">FK · owner_user_id → users.id</span></div>
+              <ul class="fields">
+                <li class="field"><span class="field-main"><code class="field-name">id</code><span class="field-type">BIGINT UNSIGNED · AUTO_INCREMENT</span></span><span class="field-flags"><span class="flag pk">PK</span><span class="flag">NN</span></span></li>
+                <li class="field"><span class="field-main"><code class="field-name">owner_user_id</code><span class="field-type">BIGINT UNSIGNED</span></span><span class="field-flags"><span class="flag fk">FK</span><span class="flag unique">UQ</span><span class="flag">NN</span></span></li>
+                <li class="field"><span class="field-main"><code class="field-name">account_number</code><span class="field-type">VARCHAR(32)</span></span><span class="field-flags"><span class="flag unique">UQ</span><span class="flag">NN</span></span></li>
+                <li class="field"><span class="field-main"><code class="field-name">balance</code><span class="field-type">BIGINT</span></span><span class="field-flags"><span class="flag">NN</span><span class="flag default">DEFAULT 0</span></span></li>
+                <li class="field"><span class="field-main"><code class="field-name">created_at</code><span class="field-type">DATETIME(6)</span></span><span class="field-flags"><span class="flag">NN</span><span class="flag default">DEFAULT CURRENT_TIMESTAMP(6)</span></span></li>
+              </ul>
+              <p class="entity-note"><strong>FK:</strong> owner_user_id → users.id · ON DELETE RESTRICT<br /><strong>CHECK:</strong> balance ≥ 0</p>
+            </article>
+
+            <article class="entity" id="entity-loan-products" data-search="loan_products 대출 상품 code principal term installment" style="--x:1200px; --y:72px; --w:390px">
+              <header class="entity-header">
+                <div class="entity-tagline"><span>LOAN · CATALOG</span><span class="entity-count">6 columns</span></div>
+                <h2 class="entity-title">loan_products</h2>
+                <p class="entity-subtitle">대출 신청 시 상품 조건을 스냅샷으로 복사</p>
+              </header>
+              <div class="entity-source"><span class="source-chip">PK · id</span><span class="source-chip">UQ · code</span></div>
+              <ul class="fields">
+                <li class="field"><span class="field-main"><code class="field-name">id</code><span class="field-type">BIGINT UNSIGNED · AUTO_INCREMENT</span></span><span class="field-flags"><span class="flag pk">PK</span><span class="flag">NN</span></span></li>
+                <li class="field"><span class="field-main"><code class="field-name">code</code><span class="field-type">VARCHAR(32)</span></span><span class="field-flags"><span class="flag unique">UQ</span><span class="flag">NN</span></span></li>
+                <li class="field"><span class="field-main"><code class="field-name">name</code><span class="field-type">VARCHAR(120)</span></span><span class="field-flags"><span class="flag">NN</span></span></li>
+                <li class="field"><span class="field-main"><code class="field-name">principal_amount</code><span class="field-type">BIGINT</span></span><span class="field-flags"><span class="flag">NN</span></span></li>
+                <li class="field"><span class="field-main"><code class="field-name">term_months</code><span class="field-type">SMALLINT UNSIGNED</span></span><span class="field-flags"><span class="flag">NN</span></span></li>
+                <li class="field"><span class="field-main"><code class="field-name">monthly_installment</code><span class="field-type">BIGINT</span></span><span class="field-flags"><span class="flag">NN</span></span></li>
+              </ul>
+              <p class="entity-note"><strong>CHECK:</strong> 원금·기간·월 납입액 양수 · principal_amount = monthly_installment × term_months</p>
+            </article>
+
+            <article class="entity" id="entity-loan-applications" data-search="loan_applications 대출 신청 user product reviewed approved status" style="--x:600px; --y:720px; --w:460px">
+              <header class="entity-header">
+                <div class="entity-tagline"><span>LOAN · APPLICATION</span><span class="entity-count">13 columns</span></div>
+                <h2 class="entity-title">loan_applications</h2>
+                <p class="entity-subtitle">신청 시 상품의 이름과 상환 조건을 함께 보존하는 대출 기록</p>
+              </header>
+              <div class="entity-source"><span class="source-chip">PK · id</span><span class="source-chip">FK · user_id → users.id</span><span class="source-chip">FK · product_id → loan_products.id</span><span class="source-chip">FK · reviewed_by → users.id</span></div>
+              <ul class="fields">
+                <li class="field"><span class="field-main"><code class="field-name">id</code><span class="field-type">BIGINT UNSIGNED · AUTO_INCREMENT</span></span><span class="field-flags"><span class="flag pk">PK</span><span class="flag">NN</span></span></li>
+                <li class="field"><span class="field-main"><code class="field-name">user_id</code><span class="field-type">BIGINT UNSIGNED</span></span><span class="field-flags"><span class="flag fk">FK</span><span class="flag">NN</span></span></li>
+                <li class="field"><span class="field-main"><code class="field-name">product_id</code><span class="field-type">BIGINT UNSIGNED</span></span><span class="field-flags"><span class="flag fk">FK</span><span class="flag">NN</span></span></li>
+                <li class="field"><span class="field-main"><code class="field-name">product_code</code><span class="field-type">VARCHAR(32)</span></span><span class="field-flags"><span class="flag">NN</span></span></li>
+                <li class="field"><span class="field-main"><code class="field-name">product_name</code><span class="field-type">VARCHAR(120)</span></span><span class="field-flags"><span class="flag">NN</span></span></li>
+                <li class="field"><span class="field-main"><code class="field-name">principal_amount</code><span class="field-type">BIGINT</span></span><span class="field-flags"><span class="flag">NN</span></span></li>
+                <li class="field"><span class="field-main"><code class="field-name">term_months</code><span class="field-type">SMALLINT UNSIGNED</span></span><span class="field-flags"><span class="flag">NN</span></span></li>
+                <li class="field"><span class="field-main"><code class="field-name">monthly_installment</code><span class="field-type">BIGINT</span></span><span class="field-flags"><span class="flag">NN</span></span></li>
+                <li class="field"><span class="field-main"><code class="field-name">status</code><span class="field-type">VARCHAR(16)</span></span><span class="field-flags"><span class="flag">NN</span><span class="flag default">DEFAULT pending</span></span></li>
+                <li class="field"><span class="field-main"><code class="field-name">created_at</code><span class="field-type">DATETIME(6)</span></span><span class="field-flags"><span class="flag">NN</span><span class="flag default">DEFAULT CURRENT_TIMESTAMP(6)</span></span></li>
+                <li class="field"><span class="field-main"><code class="field-name">reviewed_at</code><span class="field-type">DATETIME(6)</span></span><span class="field-flags"><span class="flag null">NULL</span></span></li>
+                <li class="field"><span class="field-main"><code class="field-name">reviewed_by</code><span class="field-type">BIGINT UNSIGNED</span></span><span class="field-flags"><span class="flag fk">FK</span><span class="flag null">NULL</span></span></li>
+                <li class="field"><span class="field-main"><code class="field-name">approved_at</code><span class="field-type">DATETIME(6)</span></span><span class="field-flags"><span class="flag null">NULL</span></span></li>
+              </ul>
+              <p class="entity-note"><strong>FK:</strong> user_id · product_id · reviewed_by 모두 ON DELETE RESTRICT<br /><strong>CHECK:</strong> status pending/repaying/rejected/repaid · 대출 금액·기간 제약<br /><strong>INDEX:</strong> (user_id, status, id) · (status, id)</p>
+            </article>
+
+            <article class="entity" id="entity-loan-repayments" data-search="loan_repayments 상환 repayment installment due paid overdue" style="--x:1190px; --y:850px; --w:400px">
+              <header class="entity-header">
+                <div class="entity-tagline"><span>LOAN · REPAYMENT SCHEDULE</span><span class="entity-count">9 columns</span></div>
+                <h2 class="entity-title">loan_repayments</h2>
+                <p class="entity-subtitle">대출 신청에 속하는 회차별 상환 일정</p>
+              </header>
+              <div class="entity-source"><span class="source-chip">PK · id</span><span class="source-chip">FK · loan_application_id</span><span class="source-chip">UQ · application + installment</span></div>
+              <ul class="fields">
+                <li class="field"><span class="field-main"><code class="field-name">id</code><span class="field-type">BIGINT UNSIGNED · AUTO_INCREMENT</span></span><span class="field-flags"><span class="flag pk">PK</span><span class="flag">NN</span></span></li>
+                <li class="field"><span class="field-main"><code class="field-name">loan_application_id</code><span class="field-type">BIGINT UNSIGNED</span></span><span class="field-flags"><span class="flag fk">FK</span><span class="flag">NN</span></span></li>
+                <li class="field"><span class="field-main"><code class="field-name">installment_number</code><span class="field-type">SMALLINT UNSIGNED</span></span><span class="field-flags"><span class="flag">NN</span></span></li>
+                <li class="field"><span class="field-main"><code class="field-name">due_date</code><span class="field-type">DATE</span></span><span class="field-flags"><span class="flag">NN</span></span></li>
+                <li class="field"><span class="field-main"><code class="field-name">amount</code><span class="field-type">BIGINT</span></span><span class="field-flags"><span class="flag">NN</span></span></li>
+                <li class="field"><span class="field-main"><code class="field-name">status</code><span class="field-type">VARCHAR(16)</span></span><span class="field-flags"><span class="flag">NN</span><span class="flag default">DEFAULT scheduled</span></span></li>
+                <li class="field"><span class="field-main"><code class="field-name">created_at</code><span class="field-type">DATETIME(6)</span></span><span class="field-flags"><span class="flag">NN</span><span class="flag default">DEFAULT CURRENT_TIMESTAMP(6)</span></span></li>
+                <li class="field"><span class="field-main"><code class="field-name">processed_at</code><span class="field-type">DATETIME(6)</span></span><span class="field-flags"><span class="flag null">NULL</span></span></li>
+                <li class="field"><span class="field-main"><code class="field-name">paid_at</code><span class="field-type">DATETIME(6)</span></span><span class="field-flags"><span class="flag null">NULL</span></span></li>
+              </ul>
+              <p class="entity-note"><strong>FK:</strong> loan_application_id → loan_applications.id · ON DELETE RESTRICT<br /><strong>UNIQUE:</strong> (loan_application_id, installment_number)<br /><strong>CHECK:</strong> 회차·금액 양수 · status scheduled/paid/overdue<br /><strong>INDEX:</strong> (status, due_date, loan_application_id, installment_number)</p>
+            </article>
+
+            <article class="entity" id="entity-ledger-entries" data-search="ledger_entries 원장 transaction transfer deposit withdrawal account user loan" style="--x:55px; --y:730px; --w:480px">
+              <header class="entity-header">
+                <div class="entity-tagline"><span>LEDGER · PARTITIONED</span><span class="entity-count">7 columns</span></div>
+                <h2 class="entity-title">ledger_entries</h2>
+                <p class="entity-subtitle">입출금, 송금, 대출 실행·상환을 기록하는 분할 원장</p>
+              </header>
+              <div class="entity-source"><span class="source-chip">PK · (entry_id, posted_at)</span><span class="source-chip">RANGE COLUMNS · posted_at</span></div>
+              <ul class="fields">
+                <li class="field"><span class="field-main"><code class="field-name">entry_id</code><span class="field-type">BIGINT UNSIGNED · AUTO_INCREMENT</span></span><span class="field-flags"><span class="flag pk">PK</span><span class="flag">NN</span></span></li>
+                <li class="field"><span class="field-main"><code class="field-name">posted_at</code><span class="field-type">DATETIME(6)</span></span><span class="field-flags"><span class="flag pk">PK</span><span class="flag">NN</span></span></li>
+                <li class="field"><span class="field-main"><code class="field-name">transaction_id</code><span class="field-type">CHAR(36)</span></span><span class="field-flags"><span class="flag">NN</span></span></li>
+                <li class="field"><span class="field-main"><code class="field-name">account_id</code><span class="field-type">BIGINT UNSIGNED</span></span><span class="field-flags"><span class="flag">NN</span></span></li>
+                <li class="field"><span class="field-main"><code class="field-name">user_id</code><span class="field-type">BIGINT UNSIGNED</span></span><span class="field-flags"><span class="flag">NN</span></span></li>
+                <li class="field"><span class="field-main"><code class="field-name">entry_type</code><span class="field-type">VARCHAR(24)</span></span><span class="field-flags"><span class="flag">NN</span></span></li>
+                <li class="field"><span class="field-main"><code class="field-name">amount</code><span class="field-type">BIGINT</span></span><span class="field-flags"><span class="flag">NN</span></span></li>
+              </ul>
+              <p class="entity-note"><strong class="warn">논리 참조:</strong> account_id, user_id에는 DB FK 제약이 없습니다.<br /><strong>CHECK:</strong> entry_type deposit/withdrawal/transfer_in/transfer_out/loan_disbursement/loan_repayment · amount ≠ 0<br /><strong>INDEX:</strong> (account_id, posted_at, entry_id) · (transaction_id, posted_at, entry_id)<br /><strong>transaction_id</strong>는 원장 행을 묶는 식별자이며 거래 마스터 테이블은 없습니다.</p>
+            </article>
+          </div>
+        </div>
+      </section>
+      <div class="canvas-caption">
+        <span>화면이 작으면 캔버스를 가로·세로로 스크롤하거나 폭 맞춤·확대 버튼을 사용하세요.</span>
+        <span>대출 상품의 스냅샷 컬럼은 loan_products를 가리키는 FK가 아닙니다.</span>
+      </div>
+
+      <section class="notes-grid" aria-label="도식 설명과 참고 자료">
+        <article class="note-card">
+          <h2>관계와 제약 읽기</h2>
+          <p>
+            계좌는 owner_user_id의 UNIQUE 제약 때문에 사용자 한 명당 최대 1개입니다. 대출 신청에는 신청자와 선택 상품이 반드시 하나씩 연결되고,
+            심사자는 아직 지정되지 않을 수 있습니다. 신청과 상환 일정은 FK로 연결됩니다.
+            원장 행의 사용자·계좌 ID는 애플리케이션상 연결이지만 MariaDB가 참조 무결성을 강제하지 않습니다.
+          </p>
+        </article>
+        <article class="note-card">
+          <h2>한국어 ERD 참고 자료</h2>
+          <div class="source-list">
+            <p><a href="https://yourerd.com/manual.html" target="_blank" rel="noreferrer">YourERD 사용자 매뉴얼</a><small>PK·FK·NULL·UNIQUE 표기와 까마귀발 카디널리티 참고</small></p>
+            <p><a href="https://blog.chichoon.com/738" target="_blank" rel="noreferrer">ERDCloud로 관계도를 그리는 사례</a><small>엔터티 연결과 관계를 화면에 배치하는 한국어 예시</small></p>
+          </div>
+        </article>
+      </section>
+
+      <footer class="footer">
+        <span>스키마 기준: <code>backend/podobank_api/schema.py</code> · commit a4efe69</span>
+        <span>표기 참고 자료는 도식 표현에만 사용하며, 테이블·관계의 사실 여부는 저장소 DDL을 따릅니다.</span>
+      </footer>
+    </main>
+
+    <script>
+      (() => {
+        const stageWidth = 1680;
+        const stageHeight = 1460;
+        const viewport = document.getElementById("diagram-viewport");
+        const wrapper = document.getElementById("stage-wrap");
+        const stage = document.getElementById("diagram-stage");
+        const search = document.getElementById("entity-search");
+        const zoomStatus = document.getElementById("zoom-status");
+        const logicalToggle = document.getElementById("logical-toggle");
+        const logicalRelations = document.getElementById("logical-relations");
+        let zoom = 1;
+
+        function setZoom(value) {
+          zoom = Math.max(0.35, Math.min(1.5, value));
+          stage.style.transform = "scale(" + zoom + ")";
+          wrapper.style.width = stageWidth * zoom + "px";
+          wrapper.style.height = stageHeight * zoom + "px";
+          zoomStatus.textContent = Math.round(zoom * 100) + "%";
+        }
+
+        document.getElementById("zoom-in").addEventListener("click", () => setZoom(zoom + 0.1));
+        document.getElementById("zoom-out").addEventListener("click", () => setZoom(zoom - 0.1));
+        document.getElementById("fit-view").addEventListener("click", () => {
+          const availableWidth = Math.max(260, viewport.clientWidth - 24);
+          setZoom(Math.min(1, availableWidth / stageWidth));
+          viewport.scrollTop = 0;
+          viewport.scrollLeft = 0;
+        });
+        document.getElementById("reset-view").addEventListener("click", () => {
+          search.value = "";
+          search.dispatchEvent(new Event("input"));
+          logicalToggle.checked = true;
+          logicalRelations.hidden = false;
+          setZoom(1);
+          viewport.scrollTop = 0;
+          viewport.scrollLeft = 0;
+        });
+
+        logicalToggle.addEventListener("change", () => {
+          logicalRelations.hidden = !logicalToggle.checked;
+        });
+
+        search.addEventListener("input", () => {
+          const query = search.value.trim().toLocaleLowerCase("ko");
+          document.querySelectorAll(".entity").forEach((entity) => {
+            const content = (entity.dataset.search + " " + entity.textContent).toLocaleLowerCase("ko");
+            const matches = query === "" || content.includes(query);
+            entity.classList.toggle("is-match", query !== "" && matches);
+            entity.classList.toggle("is-dimmed", query !== "" && !matches);
+          });
+        });
+
+        if (window.matchMedia("(max-width: 760px)").matches) {
+          setZoom(0.78);
+          requestAnimationFrame(() => {
+            viewport.scrollLeft = Math.max(0, 850 * zoom - viewport.clientWidth / 2);
+          });
+        }
+      })();
+    </script>
+  </body>
+</html>
