@@ -1,0 +1,38 @@
+{
+  "schema": 1,
+  "id": "podobank-mongodb-foundation",
+  "kind": "architecture",
+  "title": "Add an isolated MongoDB service for future audit event storage",
+  "base": {
+    "ref": "main",
+    "commit": "5f5649cb23fc9661b605698f094b7a099c72b823"
+  },
+  "baseline": {
+    "intent.md": "sha256:713e23285d0340754f840512430a1c1de8dc67bca3018c9bb320a9725d33d420",
+    "spec.md": "sha256:481dd75bbfda974f74d037ff5c7f6e81fcf74c04d8da026a9aeb8e090faa31ec"
+  },
+  "write_scope": [
+    ".env",
+    ".env.example",
+    "compose.yaml",
+    "scripts/verify_observability.py",
+    "spec.md"
+  ],
+  "approvals": [
+    {
+      "artifact": "spec.md",
+      "sha256": "sha256:79cf08cd9ac984213eaa43850f5aa470ac7144082246250ee1ecab24cd39cbc9",
+      "by": "ckh",
+      "at": "2026-11-03T07:31:39Z",
+      "note": "\ud638\ud658 MongoDB \ubc84\uc804 \uc124\uce58 \uc2b9\uc778"
+    },
+    {
+      "artifact": "plan.md",
+      "sha256": "sha256:04aab45df329ab77ed1fbc43d9cd364a5419f11b743d9b4469eb2b7c1fe97443",
+      "by": "ckh",
+      "at": "2026-11-03T07:31:40Z",
+      "write_scope_sha256": "sha256:0993318283972ddaf2c2614f6e8113d3e13a45c25402a80c765c7b9ef11a8492",
+      "note": "\ud638\ud658 MongoDB \ubc84\uc804\uc73c\ub85c \uc9c4\ud589 \uc2b9\uc778"
+    }
+  ]
+}

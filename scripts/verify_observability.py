@@ -146,6 +146,7 @@ def compose_environment(env_file: Path, test_values: dict[str, str]) -> dict[str
             "COMPOSE_ENV_FILE": str(env_file),
             "API_PORT": "0",
             "DB_PORT": "0",
+            "FRONTEND_PORT": "0",
             "GRAFANA_PORT": "0",
         }
     )
@@ -191,6 +192,7 @@ def write_test_environment(destination: Path) -> dict[str, str]:
         {
             "API_PORT": "0",
             "DB_PORT": "0",
+            "FRONTEND_PORT": "0",
             "GRAFANA_PORT": "0",
             "GRAFANA_ADMIN_PASSWORD": f"verify-{uuid.uuid4().hex}-only",
             "MARIADB_ROOT_PASSWORD": f"root-{uuid.uuid4().hex}-only",
@@ -220,23 +222,48 @@ def verify_monitoring_port_bindings(compose: list[str], environment: dict[str, s
         environment=environment,
     )
     try:
-        services = json.loads(rendered)["services"]
+        config = json.loads(rendered)
+        services = config["services"]
         published = {
             name: services[name].get("ports", [])
-            for name in ("alloy", "loki", "prometheus")
+            for name in ("alloy", "loki", "prometheus", "mongo")
         }
         grafana_ports = services["grafana"].get("ports", [])
+        mongo = services["mongo"]
+        api = services["api"]
+        volumes = config["volumes"]
     except (KeyError, TypeError, json.JSONDecodeError) as error:
-        raise VerificationError("Could not read the rendered monitoring service ports.") from error
+        raise VerificationError("Compose must define the monitoring and MongoDB services.") from error
 
     if any(published.values()):
-        raise VerificationError("Alloy, Loki, and Prometheus must remain internal to Compose.")
+        raise VerificationError("Alloy, Loki, Prometheus, and MongoDB must remain internal to Compose.")
     if (
         len(grafana_ports) != 1
         or grafana_ports[0].get("host_ip") != "127.0.0.1"
         or grafana_ports[0].get("target") != 3000
     ):
         raise VerificationError("Grafana must publish only its UI on 127.0.0.1:3000.")
+
+    if mongo.get("image") != "mongo:7.0.45":
+        raise VerificationError("MongoDB must use the pinned mongo:7.0.45 image.")
+    if "mongodb_data" not in volumes:
+        raise VerificationError("MongoDB must declare its persistent mongodb_data volume.")
+    mongo_mounts = mongo.get("volumes", [])
+    if not any(mount.get("target") == "/data/db" for mount in mongo_mounts):
+        raise VerificationError("MongoDB must mount persistent storage at /data/db.")
+    healthcheck = mongo.get("healthcheck", {})
+    health_command = " ".join(str(part) for part in healthcheck.get("test", []))
+    if "mongosh" not in health_command or "ping" not in health_command:
+        raise VerificationError("MongoDB must have a mongosh ping health check.")
+
+    api_environment = api.get("environment", {})
+    if api_environment.get("MONGO_URL") != "mongodb://mongo:27017":
+        raise VerificationError("FastAPI must receive MONGO_URL using the Compose service name.")
+    if api_environment.get("MONGO_DB_NAME") != "podobank_events":
+        raise VerificationError("FastAPI must receive MONGO_DB_NAME=podobank_events.")
+    dependencies = api.get("depends_on", {})
+    if "mongo" in dependencies:
+        raise VerificationError("FastAPI must not depend on MongoDB during this install-only change.")
 
 
 def http_json(url: str, *, authorization: str | None = None) -> dict | list:
@@ -285,6 +312,46 @@ def host_url(compose: list[str], service: str, container_port: int, environment:
     return f"http://127.0.0.1:{match.group(1)}"
 
 
+def verify_mongodb_persistence(
+    compose: list[str],
+    environment: dict[str, str],
+    values: dict[str, str],
+) -> None:
+    uri = f"{values['MONGO_URL'].rstrip('/')}/{values['MONGO_DB_NAME']}"
+    marker_id = f"install-check-{uuid.uuid4().hex}"
+    collection = f"db.getSiblingDB({json.dumps(values['MONGO_DB_NAME'])}).installation_checks"
+    insert_marker = (
+        f"const checks = {collection}; "
+        f"checks.insertOne({{_id: {json.dumps(marker_id)}}}); "
+        f"if (!checks.findOne({{_id: {json.dumps(marker_id)}}})) quit(1);"
+    )
+    run(
+        [*compose, "exec", "-T", "mongo", "mongosh", uri, "--quiet", "--eval", insert_marker],
+        label="Connecting with MONGO_URL and creating an isolated persistence marker.",
+        environment=environment,
+    )
+    run(
+        [*compose, "restart", "mongo"],
+        label="Restarting MongoDB while retaining its named volume.",
+        environment=environment,
+    )
+    run(
+        [*compose, "up", "-d", "--wait", "--wait-timeout", "120", "mongo"],
+        label="Waiting for MongoDB health after restart.",
+        environment=environment,
+    )
+    verify_marker = (
+        f"const checks = {collection}; "
+        f"if (!checks.findOne({{_id: {json.dumps(marker_id)}}})) quit(1); "
+        "print('MongoDB data persisted after restart.');"
+    )
+    run(
+        [*compose, "exec", "-T", "mongo", "mongosh", uri, "--quiet", "--eval", verify_marker],
+        label="Verifying the MongoDB marker survived container restart.",
+        environment=environment,
+    )
+
+
 def verify_smoke(compose: list[str], environment: dict[str, str], values: dict[str, str]) -> None:
     run(
         [*compose, "up", "-d", "--build", "--wait", "--wait-timeout", "240"],
@@ -292,6 +359,7 @@ def verify_smoke(compose: list[str], environment: dict[str, str], values: dict[s
         environment=environment,
         timeout=START_TIMEOUT_SECONDS,
     )
+    verify_mongodb_persistence(compose, environment, values)
     run(
         [*compose, "exec", "-T", "api", "podobank-api", "init-db"],
         label="Preparing the isolated demo database.",

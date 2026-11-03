@@ -20,6 +20,17 @@ services:
       retries: 20
       start_period: 20s
 
+  mongo:
+    image: mongo:7.0.45
+    volumes:
+      - mongodb_data:/data/db
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "--eval", "quit(db.adminCommand({ ping: 1 }).ok ? 0 : 1)"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 10s
+
   api:
     build:
       context: .
@@ -38,6 +49,8 @@ services:
       BANK_EMPLOYEE_PASSWORD: ${BANK_EMPLOYEE_PASSWORD:-local-demo-employee-password}
       DEMO_CUSTOMER_PASSWORD: ${DEMO_CUSTOMER_PASSWORD:-local-demo-customer-password}
       FINANCIAL_EVENTS_PATH: /var/log/podobank/financial-events.jsonl
+      MONGO_URL: ${MONGO_URL:-mongodb://mongo:27017}
+      MONGO_DB_NAME: ${MONGO_DB_NAME:-podobank_events}
     depends_on:
       db:
         condition: service_healthy
@@ -126,3 +139,4 @@ volumes:
   loki_data:
   prometheus_data:
   grafana_data:
+  mongodb_data:
