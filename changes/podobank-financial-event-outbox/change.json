@@ -25,19 +25,19 @@
   ],
   "approvals": [
     {
-      "artifact": "plan.md",
-      "sha256": "sha256:7a2c857aa483f986eaf96fb2a1aa127f8f8d4feabc50a04183c4433c1de30974",
-      "by": "ckh",
-      "at": "2026-11-03T08:02:33Z",
-      "write_scope_sha256": "sha256:b84a4423a8cfbc31713e5ee9fb61b752629a90787b91de446eb633cffe965b35",
-      "note": "\ucee4\ubc0b \uc774\ubca4\ud2b8 \uc544\uc6c3\ubc15\uc2a4 \uad6c\ud604 \uacc4\ud68d \uc2b9\uc778"
-    },
-    {
       "artifact": "spec.md",
       "sha256": "sha256:a593b015cd633c4522af7a3183febb72de800432af504be23a77a70216821964",
       "by": "ckh",
       "at": "2026-11-03T12:00:04Z",
       "note": "\ucd5c\uc120 \ub178\ub825 \uc9c1\uc811 \uc774\ubca4\ud2b8 \uae30\ub85d \ubc29\ud5a5 \uc2b9\uc778"
+    },
+    {
+      "artifact": "plan.md",
+      "sha256": "sha256:f8e0515bec20bc61ba7cf28bd1343fbc9cd483852b1f3025eedd48f976e0065a",
+      "by": "ckh",
+      "at": "2026-11-03T12:01:30Z",
+      "write_scope_sha256": "sha256:00df126294bcd868d4c779346678406cc4cc77edb1ed3c1555644b545050c2ac",
+      "note": "MongoDB \uc9c1\uc811 \ucd5c\uc120 \ub178\ub825 \uae30\ub85d \uacc4\ud68d \uc2b9\uc778"
     }
   ]
 }
