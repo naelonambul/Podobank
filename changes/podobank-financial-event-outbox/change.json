@@ -1,0 +1,35 @@
+{
+  "schema": 1,
+  "id": "podobank-financial-event-outbox",
+  "kind": "architecture",
+  "title": "Persist committed financial events through a MariaDB outbox and MongoDB projector",
+  "base": {
+    "ref": "main",
+    "commit": "a774c58e2ffb5ac00e505943a1142f0af0869b9f"
+  },
+  "baseline": {
+    "intent.md": "sha256:713e23285d0340754f840512430a1c1de8dc67bca3018c9bb320a9725d33d420",
+    "spec.md": "sha256:79cf08cd9ac984213eaa43850f5aa470ac7144082246250ee1ecab24cd39cbc9"
+  },
+  "write_scope": [
+    "spec.md",
+    "backend/podobank_api/**",
+    "backend/tests/**",
+    "compose.yaml",
+    ".env.example",
+    "pyproject.toml",
+    "uv.lock",
+    "scripts/verify_event_projection.py",
+    "checks.json",
+    "README.md"
+  ],
+  "approvals": [
+    {
+      "artifact": "spec.md",
+      "sha256": "sha256:28e6004fb2be9090ab780b90d1c414bc545299f3293f25aa55d89fb66fe77a32",
+      "by": "ckh",
+      "at": "2026-11-03T07:59:33Z",
+      "note": "\ucee4\ubc0b \uc774\ubca4\ud2b8 \uc544\uc6c3\ubc15\uc2a4 \uba85\uc138 \uc2b9\uc778"
+    }
+  ]
+}
