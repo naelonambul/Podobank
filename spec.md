@@ -19,7 +19,7 @@
 - **FR-9 데이터 저장과 SQL 접근:** 초기 백엔드부터 사용자, 계정 등급, 계좌, 잔액, 이체 원장, 대출 상품, 대출 신청·승인·상환 데이터를 MariaDB에 저장한다. 데이터 접근은 SQLAlchemy Core의 Engine·Connection·트랜잭션 기능을 사용하고 SQL은 직접 작성한다. SQLAlchemy ORM은 사용하지 않는다. 초기 데이터에는 은행 직원 계정 한 명과 대출 상품을 등록한다.
 - **FR-10 이벤트 기록과 수집:** 거래·대출 서비스 호출마다 서비스 수준 성공·실패 결과를 줄 단위 JSON 이벤트로 기록하고 Alloy가 자동 수집한다. 이벤트의 `event` 값은 `financial_operation`이며 `operation`은 `deposit`, `withdrawal`, `transfer`, `loan_application`, `loan_approval`, `loan_rejection`, `repayment_batch`, `manual_loan_repayment` 중 하나다. `outcome`은 `success` 또는 `failure`, `reason`은 코드에 정의된 유한한 정적 값이다. UTC RFC 3339 시각을 포함하며, 상환 배치 이벤트에는 처리·완료·연체·건너뜀 회차 수만 추가할 수 있다. HTTP 인증·권한·요청 스키마 단계의 거절은 금융 서비스 호출이 아니므로 포함하지 않는다. 수동 내보내기나 대시보드 입력은 없다.
 - **FR-11 관측 저장:** Loki에서 구조화 금융 이벤트를 조회하고 Prometheus에서 `podobank_financial_operations_total{operation,outcome,reason}` 카운터를 조회한다. Alloy는 이벤트를 파싱해 카운터를 만들고 Prometheus는 Alloy의 내부 메트릭 엔드포인트를 스크랩한다. 카운터는 서비스 호출 한 번을 세며 `repayment_batch`도 배치 실행 한 번으로 센다. Grafana는 두 데이터 소스를 자동 설정하고 성공·실패 추이와 최근 이벤트를 표시하는 대시보드를 파일에서 프로비저닝한다. Loki 보존 기간은 30일, Prometheus 보존 기간은 15일이다.
-- **FR-12 개발 서비스 실행:** 개발·데모 환경의 컨테이너 서비스를 Docker Compose로 정의한다. MariaDB는 초기 백엔드부터 컨테이너로 실행하고 데이터는 영속 볼륨에 저장한다. FastAPI는 MariaDB health check가 통과한 뒤 연결한다. 이번 관측 단계에서 Compose에 Grafana Alloy, Loki, Prometheus, Grafana 및 각 저장 볼륨을 추가한다. 최종 제품 구성에는 UI 단계에서 추가할 Nginx도 포함한다.
+- **FR-12 개발 서비스 실행:** 개발·데모 환경의 컨테이너 서비스를 Docker Compose로 정의한다. MariaDB는 금융 업무 데이터의 유일한 저장소이며 데이터는 영속 볼륨에 저장한다. FastAPI는 MariaDB health check가 통과한 뒤 연결한다. 관측 단계에서 Compose에 Grafana Alloy, Loki, Prometheus, Grafana 및 각 저장 볼륨을 추가했다. MongoDB 7.0.45도 `mongo` 서비스와 전용 영속 볼륨으로 추가하며 호스트 포트를 공개하지 않는다. `.env.example`과 로컬 `.env`는 Compose 컨테이너가 사용할 `MONGO_URL=mongodb://mongo:27017`과 `MONGO_DB_NAME=podobank_events`를 제공한다. 개발자는 `docker compose exec mongo mongosh`로 설치 상태를 확인할 수 있다. 이 설치 변경에서는 API와 작업 프로세스가 MongoDB에 연결하거나 이벤트를 적재하지 않는다. MongoDB는 NPM 외부 프록시 네트워크에 연결하지 않는다. 최종 제품 구성에는 UI 단계에서 추가한 Nginx도 포함한다.
 - **FR-13 로컬 로그인:** 은행 직원은 카카오 계정 없이 휴대전화번호와 비밀번호로 로그인한다. 고객은 가입할 때 비밀번호를 선택적으로 설정할 수 있고, 비밀번호를 비워 두면 카카오 로그인만 가능하다. 고객은 카카오 로그인 상태에서 비밀번호를 설정한 뒤 로컬 로그인을 사용할 수 있다. 로컬 로그인은 비밀번호가 설정된 계정에만 허용한다. 로컬 로그인도 FR-3과 동일한 JWT HttpOnly 쿠키 세션을 발급하며, 권한은 DB의 계정 등급으로 판별한다.
 - **FR-14 HTTPS 원격 미리보기:** 팀원은 `https://podobank.oci-dev.duckdns.org`에서 데모 화면을 보고 `https://podobank-api.oci-dev.duckdns.org`에서 API를 사용할 수 있다. NPM은 두 호스트의 TLS를 각각 종료해 프론트엔드와 API 컨테이너에 전달하며 두 호스트 모두 Access List 없이 공개한다. 사용자는 UI를 NPM 인증 없이 열고 앱의 고객 또는 직원 로그인으로 인증한다. API는 UI origin만 CORS 허용하고 사용자 금융 기능은 JWT 세션과 DB 역할로 보호한다. CORS는 비브라우저 클라이언트의 접근을 막지 않으므로 두 호스트 모두 인터넷에서 직접 접근 가능하다. `/health`, `/auth/login` 등 앱 세션이 필요하지 않은 API 경로도 인터넷에서 도달할 수 있으므로 이 미리보기는 합성 개발 데이터만 사용한다. 프록시 네트워크에는 프론트엔드와 API만 연결하고 데이터베이스는 연결하지 않는다. 미리보기 Compose 설정은 별도 overlay로 제공하여 기본 로컬 개발 구성을 바꾸지 않는다.
 
@@ -40,6 +40,7 @@
 - **NFR-3 개발 데이터 안전:** 스키마 초기화와 샘플 데이터 재생성은 명시적으로 실행한 개발 명령에서만 허용한다. 애플리케이션 시작 시 기존 MariaDB 데이터를 자동 삭제하거나 다시 만들지 않는다.
 - **NFR-4 관측 데이터 최소화:** 금융 이벤트와 Prometheus 라벨은 개인정보·인증정보·금액·계좌 또는 사용자 식별자를 포함하지 않는다. Prometheus 라벨 값은 코드에서 정한 유한한 집합으로 제한한다.
 - **NFR-5 금융 동작 격리:** 이벤트 기록이나 메트릭 수집 장애가 이미 커밋된 금융 동작의 결과를 실패로 바꾸거나 DB 트랜잭션 결과에 영향을 주지 않는다. 관측 스택은 개발·데모용이며 운영 배포의 가용성 보장은 범위에 포함하지 않는다.
+- **NFR-7 MongoDB 설치 경계:** MongoDB는 개발·데모 Compose 서비스로만 실행하고 호스트나 NPM 네트워크에 포트를 공개하지 않는다. Compose 내부 서비스 이름으로만 접근한다. 현재 애플리케이션은 MongoDB에 의존하지 않으므로 MongoDB 장애가 금융 API의 기동이나 동작에 영향을 주지 않는다. 이 설치만으로 이벤트 유실 방지나 감사 기록 보장을 주장하지 않는다. MongoDB 7.0은 2027-08-31 지원 종료 전에 호스트 커널 호환성을 해결한 뒤 지원 중인 주요 버전으로 올린다.
 - **NFR-6 원격 미리보기 보안:** 원격 미리보기 UI와 API 모두 HTTPS를 사용하고 NPM Access List 없이 공개한다. UI의 고객·직원 화면은 앱 로그인이 필요하다. API는 `AUTH_COOKIE_SECURE=true`, UI origin만 허용하는 credentialed CORS, JWT 세션 및 DB 역할 검증을 사용한다. CORS는 비브라우저 요청의 접근 제어가 아니다. `/health`, `/auth/login` 등 앱 세션이 필요하지 않은 경로도 인터넷에서 도달 가능하다. API는 합성 개발 데이터만 제공하고 기본 개발 JWT 키, 직원 비밀번호, 데모 고객 비밀번호를 사용하지 않는다. 미리보기 구성에서 MariaDB 포트는 NPM 네트워크에 노출하지 않는다. 이 환경은 운영 배포가 아니다.
 
 ## User experience and behavior
@@ -58,6 +59,15 @@
 
 ## Architecture and design
 
+### 이벤트 저장 역할과 후속 경로
+
+- MariaDB는 잔액, 원장, 대출 등 정형 금융 데이터와 추후 transactional outbox의 원본이다.
+- MongoDB는 FastAPI 경계 뒤에서 유연한 금융 이벤트 문서를 저장·조회하는 저장소다. 이벤트 문서는 확장 가능한 payload를 허용하되 공통 ID, 이벤트 유형, 시각, 스키마 버전 같은 공통 봉투를 가져야 한다.
+- 감사 이벤트는 MariaDB 금융 변경과 같은 트랜잭션에서 outbox에 기록한 뒤 재시도 가능한 비동기 적재기가 MongoDB에 반영한다. FastAPI 요청 경로에서 MariaDB와 MongoDB를 직접 이중 기록하지 않는다. MongoDB 반영은 이벤트 ID를 기준으로 중복 재처리를 안전하게 처리한다.
+- Loki는 애플리케이션·런타임 로그를 수집한다. MongoDB 이벤트 문서는 Loki 로그와 별개의 조회용 데이터다. 현재 JSONL → Alloy → Loki·Prometheus 흐름은 이 설치 변경에서 바꾸지 않으며, outbox와 이벤트 전달 변경은 별도 승인된 변경에서 다룬다.
+- 현재 Docker 호스트의 커널은 `7.0.0-1013-oracle`이다. MongoDB 공식 8.0 릴리스 노트는 Linux 커널 `6.19`부터 `7.0.13`까지 시작 호환성 문제가 있으며 `7.0.14` 이상으로 업그레이드하도록 안내한다. 이 환경에서 `mongo:8.0.34`는 시작 직후 종료됐고 `mongo:7.0.45`는 기동 및 `mongosh` ping에 성공했다. 따라서 개발용 설치는 `mongo:7.0.45`를 사용한다. MongoDB 7.0의 지원 종료일은 2027-08-31이므로, MongoDB 8.0 이상으로 올릴 때는 먼저 호스트 커널 호환성을 해결하고 지원 종료 전에 별도 변경으로 진행한다. ([MongoDB 8.0 릴리스 노트](https://www.mongodb.com/docs/v8.0/release-notes/8.0/), [MongoDB 라이프사이클](https://www.mongodb.com/legal/support-policy/lifecycles))
+- 이 변경은 위 목표를 위해 MongoDB 서비스와 접속 설정만 준비한다. outbox 테이블, 적재기, 이벤트 API, 이벤트 스키마, 현재 이벤트 라우팅 변경은 범위에 포함하지 않는다.
+
 `고객 카카오 로그인 → FastAPI 사용자 확인/기본 계좌 발급`
 
 `고객·직원 로컬 로그인 → FastAPI 사용자 확인/JWT 세션 발급`
@@ -71,6 +81,10 @@
 `미리보기 브라우저 → NPM HTTPS API host → FastAPI`
 
 `FastAPI 데이터베이스: MariaDB`
+
+`Compose 내부 API·작업 프로세스 → mongo:27017 → Compose mongo 서비스`
+
+MongoDB는 다음 감사 이벤트 적재 변경에서 사용할 개발용 기반 서비스다. 이 변경에서는 API와 연결하지 않으며, 금융 이벤트는 계속 현재 JSONL → Alloy → Loki·Prometheus 경로로만 흐른다. 금융 상태의 원본은 계속 MariaDB다. Compose의 MongoDB 데이터는 전용 named volume에 저장하고 호스트 포트와 NPM 네트워크에는 연결하지 않는다. 설치 상태는 `docker compose exec mongo mongosh --quiet --eval 'db.adminCommand({ping: 1})'`로 확인한다.
 
 로컬 개발에서는 Vue가 FastAPI origin을 직접 호출한다. 원격 미리보기는 NPM의 UI 호스트를 프론트엔드 컨테이너에, 별도 API 호스트를 FastAPI 컨테이너에 전달한다. 미리보기 빌드는 browser-visible API base로 `https://podobank-api.oci-dev.duckdns.org`를 사용한다. 두 호스트는 같은 사이트의 서로 다른 origin이므로 API의 HTTPS 전용, HttpOnly, SameSite=Lax 쿠키를 credential 포함 요청으로 전달한다. FastAPI CORS는 UI origin과 필요한 HTTP method·header만 허용하고 credentials를 허용한다. credentials를 허용할 때 origin·method·header에 와일드카드(`*`)를 사용하지 않는다. NPM은 어느 호스트에도 Access List를 요구하지 않으며 앱 로그인과 API 권한 검증은 그대로 유지한다.
 
@@ -109,7 +123,8 @@ FastAPI와 `process-repayments` CLI는 전용 JSONL 이벤트 파일에 결과 �
 - **프론트엔드:** Vue 3
 - **프론트엔드 서빙:** Nginx
 - **API:** FastAPI
-- **데이터베이스:** MariaDB
+- **금융 데이터베이스:** MariaDB
+- **개발용 이벤트 저장소 기반:** MongoDB 7.0.45 (이번 변경에서는 애플리케이션 미연결)
 - **SQL 접근:** SQLAlchemy Core, 직접 작성한 SQL, ORM 미사용
 - **개발·데모 서비스 실행:** Docker Compose
 - **브라우저 API 연결:** 로컬은 FastAPI 직접 origin, NPM 미리보기는 `https://podobank-api.oci-dev.duckdns.org` base; FastAPI CORS는 UI의 정확한 origin과 필요한 method·header를 명시하고 credential 포함 요청을 허용
@@ -139,6 +154,7 @@ FastAPI와 `process-repayments` CLI는 전용 JSONL 이벤트 파일에 결과 �
 - 잔액 부족 거래도 실패 이벤트로 기록해야 동작 결과를 관측할 수 있다.
 - 금융 이벤트 파일은 Loki 보존 기간과 별개로 named volume에 남고 자동 정리하지 않는다. 이벤트량이 누적될 수 있으므로 이 구성은 개발·데모용이며, 용량 관리가 필요한 운영 배포는 별도 설계가 필요하다.
 - 금융 동작 커밋 이후 이벤트 기록은 최선 노력이다. 파일 시스템 장애 시 금융 동작은 정상 결과를 유지하고 관측 이벤트가 누락될 수 있다.
+- MongoDB 컨테이너 설치만으로 현재 JSONL 이벤트의 유실 위험은 해결되지 않는다. MariaDB outbox와 MongoDB 적재 작업은 별도 변경에서 설계하고 구현해야 한다.
 
 ## Acceptance criteria
 
@@ -174,6 +190,11 @@ FastAPI와 `process-repayments` CLI는 전용 JSONL 이벤트 파일에 결과 �
 - Alloy는 이벤트를 Loki로 전송하고 각 이벤트마다 `podobank_financial_operations_total`을 한 번 증가시킨다. Prometheus에서 거래 유형·결과·정적 사유별 카운터를 조회할 수 있고 라벨 값 집합은 유한하다.
 - Grafana 기동 후 설정된 Prometheus·Loki 데이터 소스와 금융 동작 대시보드가 자동으로 표시된다. 대시보드는 금융 동작 성공·실패 추이와 최근 구조화 이벤트를 제공한다.
 - Docker Compose 기본 및 NPM overlay 설정 검증은 예시 env 파일 기반으로 실행할 수 있다. 관측 컨테이너 포트는 호스트에 바인딩하지 않으며 Grafana만 loopback에 공개한다.
+- MongoDB 컨테이너는 health check를 통과하고 전용 named volume을 사용한다. 재시작 또는 컨테이너 재생성 뒤에도 MongoDB 데이터가 남는다.
+- MongoDB에 호스트 포트 매핑이 없고 NPM 외부 네트워크에도 연결되지 않는다.
+- `.env.example`과 로컬 `.env`의 `MONGO_URL=mongodb://mongo:27017`, `MONGO_DB_NAME=podobank_events` 설정이 제공되고, Compose 내부 서비스에서 `mongo` 이름으로 MongoDB에 접속할 수 있다.
+- `docker compose exec mongo mongosh --quiet --eval 'db.adminCommand({ping: 1})'` 명령이 성공해 MongoDB health를 확인할 수 있다.
+- MongoDB가 중지되어도 FastAPI와 기존 JSONL·Alloy 관측 경로는 계속 동작한다. 이번 변경에서 MongoDB에 금융 이벤트가 기록되지는 않는다.
 
 ## Open questions
 
