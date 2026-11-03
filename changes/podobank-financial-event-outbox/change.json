@@ -30,6 +30,14 @@
       "by": "ckh",
       "at": "2026-11-03T07:59:33Z",
       "note": "\ucee4\ubc0b \uc774\ubca4\ud2b8 \uc544\uc6c3\ubc15\uc2a4 \uba85\uc138 \uc2b9\uc778"
+    },
+    {
+      "artifact": "plan.md",
+      "sha256": "sha256:7a2c857aa483f986eaf96fb2a1aa127f8f8d4feabc50a04183c4433c1de30974",
+      "by": "ckh",
+      "at": "2026-11-03T08:02:33Z",
+      "write_scope_sha256": "sha256:b84a4423a8cfbc31713e5ee9fb61b752629a90787b91de446eb633cffe965b35",
+      "note": "\ucee4\ubc0b \uc774\ubca4\ud2b8 \uc544\uc6c3\ubc15\uc2a4 \uad6c\ud604 \uacc4\ud68d \uc2b9\uc778"
     }
   ]
 }
