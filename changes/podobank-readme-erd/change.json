@@ -1,0 +1,27 @@
+{
+  "schema": 1,
+  "id": "podobank-readme-erd",
+  "kind": "implementation",
+  "title": "Link the current ERD from README",
+  "base": {
+    "ref": "main",
+    "commit": "1fea6037cda9fd091819975e84b922df2bc7d6d0"
+  },
+  "baseline": {
+    "intent.md": "sha256:713e23285d0340754f840512430a1c1de8dc67bca3018c9bb320a9725d33d420",
+    "spec.md": "sha256:38b6966a22d5c442d5ab3092ded712adf75d9299531ec4b2133c08cb9472e625"
+  },
+  "write_scope": [
+    "README.md"
+  ],
+  "approvals": [
+    {
+      "artifact": "plan.md",
+      "sha256": "sha256:33b76ff7cc1eb83933d15406471b8c743d1a980ca31855b9f0d9c1fa9e914753",
+      "by": "ckh",
+      "at": "2026-11-03T23:42:10Z",
+      "write_scope_sha256": "sha256:be3ae3b6479236a18da3e876a0de9dfe9ae2428896d83c3e804db008861b12d0",
+      "note": "\uc2b9\uc778"
+    }
+  ]
+}
