@@ -1,0 +1,26 @@
+{
+  "schema": 1,
+  "id": "podobank-architecture-diagram",
+  "kind": "implementation",
+  "title": "Document current PodoBank system architecture",
+  "base": {
+    "ref": "main",
+    "commit": "6394a92cc625abfd1279c45c0573bc617dc3a828"
+  },
+  "baseline": {
+    "intent.md": "sha256:713e23285d0340754f840512430a1c1de8dc67bca3018c9bb320a9725d33d420",
+    "spec.md": "sha256:38b6966a22d5c442d5ab3092ded712adf75d9299531ec4b2133c08cb9472e625"
+  },
+  "write_scope": [
+    "docs/architecture/podobank-current-architecture.html"
+  ],
+  "approvals": [
+    {
+      "artifact": "plan.md",
+      "sha256": "sha256:156c0202ca54979349c69606c139b286295faba265210d9f5faf6bcd71724f87",
+      "by": "ckh",
+      "at": "2026-11-03T21:43:27Z",
+      "write_scope_sha256": "sha256:e8ad2639fdf42faad83b258d305040ea6669f6043f6673f50e91ea1445ebab78"
+    }
+  ]
+}

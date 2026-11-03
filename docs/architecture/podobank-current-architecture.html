@@ -1,0 +1,803 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta
+      name="description"
+      content="Cloudflare Workers, OCI Compose, Podobank databases, and observability flows."
+    />
+    <title>Podobank · 현재 시스템 아키텍처</title>
+    <style>
+      :root {
+        color-scheme: light;
+        --ink: #16263b;
+        --muted: #596c81;
+        --line: #cbd7e4;
+        --paper: #f4f7fb;
+        --white: #fff;
+        --blue: #3478f6;
+        --blue-pale: #eaf1ff;
+        --violet: #7554d8;
+        --violet-pale: #f0ebff;
+        --green: #12856b;
+        --green-pale: #e5f7f1;
+        --orange: #c67523;
+        --orange-pale: #fff2df;
+        --gray-pale: #eef2f6;
+        --shadow: 0 16px 40px rgb(29 53 84 / 9%);
+      }
+
+      * { box-sizing: border-box; }
+
+      body {
+        margin: 0;
+        color: var(--ink);
+        background:
+          radial-gradient(circle at 4% 0%, rgb(203 224 255 / 56%), transparent 31rem),
+          var(--paper);
+        font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont,
+          "Segoe UI", "Apple SD Gothic Neo", "Noto Sans KR", sans-serif;
+      }
+
+      button, a { font: inherit; }
+
+      .page {
+        width: min(1680px, calc(100% - 40px));
+        margin: 0 auto;
+        padding: 34px 0 44px;
+      }
+
+      .eyebrow {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        color: #325d99;
+        font-size: 12px;
+        font-weight: 800;
+        letter-spacing: .11em;
+        text-transform: uppercase;
+      }
+
+      .eyebrow::before {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        background: #25a987;
+        content: "";
+        box-shadow: 0 0 0 4px rgb(37 169 135 / 13%);
+      }
+
+      h1 {
+        margin: 10px 0 8px;
+        font-size: clamp(28px, 4vw, 44px);
+        letter-spacing: -.045em;
+        line-height: 1.1;
+      }
+
+      .intro {
+        max-width: 820px;
+        margin: 0;
+        color: var(--muted);
+        font-size: 15px;
+        line-height: 1.7;
+      }
+
+      .status-row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        margin-top: 19px;
+      }
+
+      .status-pill {
+        display: inline-flex;
+        align-items: center;
+        gap: 7px;
+        padding: 7px 11px;
+        border: 1px solid #d9e2ec;
+        border-radius: 999px;
+        color: #40566f;
+        background: rgb(255 255 255 / 74%);
+        font-size: 12px;
+        font-weight: 700;
+      }
+
+      .status-pill strong { color: #193653; }
+
+      .controls-row {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 9px;
+        margin: 26px 0 13px;
+      }
+
+      .control-label {
+        margin-right: 3px;
+        color: var(--muted);
+        font-size: 12px;
+        font-weight: 750;
+      }
+
+      .filter-button, .reset-button {
+        min-height: 38px;
+        padding: 8px 13px;
+        border: 1px solid #d2dce7;
+        border-radius: 999px;
+        color: #334c67;
+        background: #fff;
+        cursor: pointer;
+        font-size: 13px;
+        font-weight: 740;
+        transition: border-color .16s ease, background .16s ease, transform .16s ease;
+      }
+
+      .filter-button:hover, .reset-button:hover { transform: translateY(-1px); }
+
+      .filter-button[aria-pressed="true"] {
+        border-color: #253c59;
+        color: #fff;
+        background: #253c59;
+      }
+
+      .filter-button:focus-visible, .reset-button:focus-visible, a:focus-visible {
+        outline: 3px solid #79a8ff;
+        outline-offset: 3px;
+      }
+
+      .reset-button { margin-left: auto; color: #5c6f84; }
+
+      .work-area {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr);
+        align-items: start;
+        gap: 16px;
+      }
+
+      .diagram-card, .detail-card, .reference-card {
+        border: 1px solid #dae3ed;
+        border-radius: 18px;
+        background: var(--white);
+        box-shadow: var(--shadow);
+      }
+
+      .diagram-card { min-width: 0; overflow: hidden; }
+
+      .diagram-topline {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        padding: 14px 17px;
+        border-bottom: 1px solid #e7edf3;
+      }
+
+      .diagram-topline strong { font-size: 13px; }
+      .diagram-topline span { color: #718196; font-size: 11px; }
+
+      .diagram-scroll {
+        overflow: auto;
+        overscroll-behavior-x: contain;
+        scrollbar-color: #aebdd0 #f0f4f8;
+      }
+
+      .architecture {
+        display: block;
+        width: 100%;
+        min-width: 2200px;
+        height: auto;
+      }
+
+      .detail-card {
+        position: static;
+        padding: 18px;
+        box-shadow: 0 8px 24px rgb(29 53 84 / 6%);
+      }
+
+      .detail-kicker {
+        margin: 0 0 10px;
+        color: #60758e;
+        font-size: 11px;
+        font-weight: 800;
+        letter-spacing: .1em;
+        text-transform: uppercase;
+      }
+
+      .detail-card h2 { margin: 0 0 8px; font-size: 18px; letter-spacing: -.02em; }
+      .detail-card p { margin: 0; color: #53677e; font-size: 13px; line-height: 1.65; }
+      .detail-source { margin-top: 15px !important; padding-top: 12px; border-top: 1px solid #e6edf3; }
+      .detail-source code { color: #27486a; font-size: 11px; overflow-wrap: anywhere; }
+
+      .legend {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 9px 16px;
+        padding: 14px 17px 16px;
+        border-top: 1px solid #e7edf3;
+      }
+
+      .legend-item { display: flex; align-items: center; gap: 9px; color: #566a80; font-size: 11px; }
+      .legend-line { position: relative; width: 31px; height: 0; border-top: 3px solid; }
+      .legend-line::after {
+        position: absolute;
+        top: -5px;
+        right: -1px;
+        width: 0;
+        height: 0;
+        border-top: 4px solid transparent;
+        border-bottom: 4px solid transparent;
+        border-left: 6px solid currentColor;
+        content: "";
+      }
+      .legend-line.request { color: var(--blue); }
+      .legend-line.data { color: var(--green); }
+      .legend-line.observe { color: var(--violet); }
+
+      .footnotes {
+        display: grid;
+        grid-template-columns: minmax(0, 1.2fr) minmax(280px, .8fr);
+        gap: 16px;
+        margin-top: 16px;
+      }
+
+      .note-card, .reference-card { padding: 16px 18px; box-shadow: none; }
+      .note-card { border: 1px solid #efd9b6; border-radius: 15px; background: #fff9ee; }
+      .note-card strong, .reference-card strong { display: block; margin-bottom: 6px; font-size: 13px; }
+      .note-card p, .reference-card p { margin: 0; color: #63758a; font-size: 12px; line-height: 1.65; }
+      .reference-card a { color: #285fa9; font-weight: 700; text-decoration-thickness: 1px; text-underline-offset: 3px; }
+      .reference-links { display: flex; flex-wrap: wrap; gap: 8px 14px; margin-top: 10px; }
+      .page-footer { margin-top: 15px; color: #718196; font-size: 11px; }
+
+      /* SVG presentation */
+      .architecture text { font-family: inherit; }
+      .boundary { fill: #f9fbfd; stroke: #cdd8e4; stroke-width: 2; }
+      .boundary.edge { fill: #f6f4ff; stroke: #cfc4f3; }
+      .boundary.host { fill: #f7fafc; stroke: #aebfd0; stroke-width: 2.5; }
+      .boundary.compose { fill: #fff; stroke: #d8e1eb; stroke-dasharray: 7 7; }
+      .boundary-title { fill: #29415c; font-size: 17px; font-weight: 800; }
+      .boundary-subtitle { fill: #708197; font-size: 11px; font-weight: 600; }
+      .small-label { fill: #74869a; font-size: 10px; font-weight: 650; }
+      .node-bg { stroke-width: 1.5; }
+      .node { cursor: pointer; outline: none; }
+      .node:hover .node-bg { stroke-width: 2.5; filter: url(#shadow); }
+      .node:focus .node-bg, .node.is-selected .node-bg { stroke: #152f4c; stroke-width: 3; }
+      .node-title { fill: #19334f; font-size: 14px; font-weight: 800; }
+      .node-subtitle { fill: #597087; font-size: 10px; font-weight: 600; }
+      .node-micro { fill: #6c7f94; font-size: 9px; font-weight: 650; }
+      .glyph-text { fill: #fff; font-size: 11px; font-weight: 900; text-anchor: middle; dominant-baseline: central; }
+      .request-line { fill: none; stroke: var(--blue); stroke-width: 3.5; marker-end: url(#arrow-request); }
+      .data-line { fill: none; stroke: var(--green); stroke-width: 3; marker-end: url(#arrow-data); }
+      .observe-line { fill: none; stroke: var(--violet); stroke-width: 3; marker-end: url(#arrow-observe); }
+      .query-line { fill: none; stroke: #9b82e9; stroke-width: 2.5; stroke-dasharray: 6 5; marker-end: url(#arrow-observe); }
+      .path-label { fill: #3f5872; font-size: 10px; font-weight: 800; paint-order: stroke; stroke: #fff; stroke-width: 5px; stroke-linejoin: round; pointer-events: none; }
+      .path-label.request { fill: #2e65c2; }
+      .path-label.data { fill: #137960; }
+      .path-label.observe { fill: #6548bc; }
+      .callout { fill: #fffaf1; stroke: #efd7ad; stroke-width: 1.2; }
+      .callout-text { fill: #705126; font-size: 10px; font-weight: 750; }
+      .volume-pill { fill: #eef3f7; stroke: #dae3eb; stroke-width: 1; }
+      .volume-text { fill: #536a81; font-size: 9px; font-weight: 700; }
+      .layer-request, .layer-data, .layer-observability { transition: opacity .18s ease; }
+      .architecture.mute-request .layer-request,
+      .architecture.mute-data .layer-data,
+      .architecture.mute-observability .layer-observability { opacity: .09; }
+
+      @media (max-width: 920px) {
+        .work-area { grid-template-columns: 1fr; }
+        .detail-card { position: static; }
+        .legend { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+        .footnotes { grid-template-columns: 1fr; }
+        .reset-button { margin-left: 0; }
+      }
+
+      @media (max-width: 560px) {
+        .page { width: min(100% - 24px, 1680px); padding-top: 24px; }
+        .controls-row { align-items: flex-start; }
+        .control-label { flex-basis: 100%; }
+        .filter-button, .reset-button { min-height: 36px; padding: 7px 10px; font-size: 12px; }
+        .diagram-topline { align-items: flex-start; flex-direction: column; }
+        .legend { grid-template-columns: 1fr 1fr; gap: 10px 8px; }
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        *, *::before, *::after { scroll-behavior: auto !important; transition-duration: .01ms !important; }
+      }
+    </style>
+  </head>
+  <body>
+    <main class="page">
+      <header>
+        <div class="eyebrow">Current system · Cloudflare + OCI</div>
+        <h1>포도뱅크 시스템 구조</h1>
+        <p class="intro">
+          브라우저 요청이 Cloudflare Worker를 거쳐 OCI의 프런트·API에 도착하고,
+          금융 데이터와 운영 이벤트가 각각 어디에 저장되는지 보여주는 현재 구성도입니다.
+        </p>
+        <div class="status-row" aria-label="현재 구성 요약">
+          <span class="status-pill"><strong>UI</strong> https://podobank.i234.workers.dev</span>
+          <span class="status-pill"><strong>API</strong> https://podobank-api.i234.workers.dev</span>
+          <span class="status-pill"><strong>배포</strong> OCI Docker Compose</span>
+          <span class="status-pill"><strong>용도</strong> 합성 데이터 개발 프리뷰</span>
+        </div>
+      </header>
+
+      <nav class="controls-row" aria-label="구조도 경로 필터">
+        <span class="control-label">흐름 보기</span>
+        <button class="filter-button" type="button" data-filter="request" aria-pressed="true">요청 경로</button>
+        <button class="filter-button" type="button" data-filter="data" aria-pressed="true">금융 저장소·Mongo 이벤트</button>
+        <button class="filter-button" type="button" data-filter="observability" aria-pressed="true">관측 경로</button>
+        <button class="reset-button" type="button" data-reset>전체 보기</button>
+      </nav>
+
+      <section class="work-area" aria-label="포도뱅크 아키텍처">
+        <div class="diagram-card">
+          <div class="diagram-topline">
+            <strong>요청 · 금융 데이터 · 관측 경로</strong>
+            <span>서비스를 선택하거나 키보드로 포커스하면 지도 아래 설명과 설정 파일 위치가 갱신됩니다.</span>
+          </div>
+          <div class="diagram-scroll" tabindex="0" aria-label="구조도. 좁은 화면에서는 좌우로 스크롤할 수 있습니다.">
+            <svg
+              id="architecture-map"
+              class="architecture"
+              viewBox="0 0 2200 1060"
+              role="group"
+              aria-labelledby="svg-title svg-desc"
+              xmlns="http://www.w3.org/2000/svg"
+            >
+              <title id="svg-title">포도뱅크 현재 시스템 아키텍처</title>
+              <desc id="svg-desc">
+                브라우저는 프런트 Worker와 API Worker를 각각 호출합니다. 두 Worker는 기존 Cloudflare Tunnel의 VPC Service를 통해 OCI loopback 포트로 연결됩니다. FastAPI는 MariaDB와 MongoDB, JSONL 관측 경로를 사용합니다.
+              </desc>
+              <defs>
+                <marker id="arrow-request" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+                  <path d="M 0 0 L 10 5 L 0 10 z" fill="#3478f6" />
+                </marker>
+                <marker id="arrow-data" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+                  <path d="M 0 0 L 10 5 L 0 10 z" fill="#12856b" />
+                </marker>
+                <marker id="arrow-observe" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+                  <path d="M 0 0 L 10 5 L 0 10 z" fill="#7554d8" />
+                </marker>
+                <filter id="shadow" x="-20%" y="-20%" width="140%" height="150%">
+                  <feDropShadow dx="0" dy="3" stdDeviation="4" flood-color="#284462" flood-opacity=".13" />
+                </filter>
+              </defs>
+
+              <!-- Trust and deployment boundaries -->
+              <rect class="boundary" x="30" y="135" width="270" height="760" rx="22" />
+              <text class="boundary-title" x="54" y="174">사용자 브라우저</text>
+              <text class="boundary-subtitle" x="54" y="194">UI를 받은 뒤 API도 직접 호출</text>
+
+              <rect class="boundary edge" x="330" y="100" width="510" height="800" rx="22" />
+              <text class="boundary-title" x="354" y="139">Cloudflare Edge</text>
+              <text class="boundary-subtitle" x="354" y="159">공개 HTTPS Worker · 기존 Tunnel VPC Service</text>
+
+              <rect class="boundary host" x="870" y="90" width="1290" height="920" rx="24" />
+              <text class="boundary-title" x="897" y="132">OCI 인스턴스 · Docker Compose</text>
+              <text class="boundary-subtitle" x="897" y="152">외부 연결은 host loopback에 바인딩된 앱 포트로 도착</text>
+              <rect class="boundary compose" x="895" y="188" width="1255" height="785" rx="18" />
+              <text class="small-label" x="918" y="214">PODOBANK COMPOSE SERVICES</text>
+
+              <!-- Path connections -->
+              <g class="layer-request" aria-label="사용자 요청 경로">
+                <path class="request-line" d="M 275 495 C 318 470, 322 310, 365 300" />
+                <path class="request-line" d="M 275 560 C 316 565, 326 583, 365 583" />
+
+                <path class="request-line" d="M 570 286 H 610" />
+                <path class="request-line" d="M 570 575 H 610" />
+                <path class="request-line" d="M 800 284 C 844 284, 858 322, 910 322" />
+                <path class="request-line" d="M 800 575 H 910" />
+              </g>
+
+              <g class="layer-data" aria-label="금융 데이터와 이벤트 경로">
+                <path class="data-line" d="M 1165 535 C 1215 535, 1215 368, 1260 368" />
+                <path class="data-line" d="M 1165 592 H 1260" />
+              </g>
+
+              <g class="layer-observability" aria-label="관측 경로">
+                <path class="observe-line" d="M 1036 655 V 725" />
+                <path class="observe-line" d="M 1135 780 H 1172" />
+                <path class="observe-line" d="M 1380 780 H 1444" />
+                <path class="observe-line" d="M 1380 820 C 1420 850, 1450 925, 1624 925" />
+                <path class="query-line" d="M 1630 780 C 1730 780, 1800 835, 1924 835" />
+                <path class="query-line" d="M 1810 925 C 1850 925, 1890 900, 1924 900" />
+              </g>
+
+              <!-- Browser -->
+              <g
+                class="node"
+                tabindex="0"
+                role="button"
+                aria-label="브라우저와 Vue 클라이언트 설명 보기"
+                data-title="브라우저 · Vue 클라이언트"
+                data-detail="브라우저는 UI Worker에서 정적 Vue 앱을 받고, 화면의 API 요청은 API Worker로 직접 보냅니다. 요청에는 세션 쿠키를 포함하고 API는 UI Worker origin만 CORS 허용합니다."
+                data-source="frontend/src · compose.npm-preview.yaml"
+              >
+                <title>브라우저 Vue 클라이언트: UI와 API Worker를 각각 호출</title>
+                <rect class="node-bg" x="55" y="425" width="220" height="145" rx="17" fill="#fff" stroke="#bdd0e2" />
+                <circle cx="83" cy="456" r="15" fill="#3478f6" />
+                <text class="glyph-text" x="83" y="456">B</text>
+                <text class="node-title" x="108" y="461">Browser / Vue</text>
+                <text class="node-subtitle" x="75" y="493">1 · UI Worker에서 화면 다운로드</text>
+                <text class="node-subtitle" x="75" y="515">2 · API Worker로 직접 fetch</text>
+                <text class="node-micro" x="75" y="543">쿠키 포함 · CORS 검사</text>
+              </g>
+
+              <!-- Cloudflare -->
+              <g
+                class="node"
+                tabindex="0"
+                role="button"
+                aria-label="Podobank UI Worker 설명 보기"
+                data-title="Podobank UI Worker"
+                data-detail="공개 UI 주소입니다. 기존 Cloudflare Tunnel VPC Service가 OCI의 HTTP 127.0.0.1:8081로 전달하고, 그 포트는 프런트 Nginx 컨테이너의 80번 포트에 바인딩됩니다."
+                data-source="docs/deployment/npm-preview.md · compose.yaml"
+              >
+                <title>Podobank UI Worker, 프런트 주소</title>
+                <rect class="node-bg" x="365" y="238" width="205" height="120" rx="16" fill="#fff" stroke="#c9bcf0" />
+                <circle cx="393" cy="268" r="15" fill="#7554d8" />
+                <text class="glyph-text" x="393" y="268">W</text>
+                <text class="node-title" x="418" y="273">UI Worker</text>
+                <text class="node-subtitle" x="382" y="303">podobank.i234.workers.dev</text>
+                <text class="node-micro" x="382" y="331">public HTTPS · 정적 UI</text>
+              </g>
+
+              <g
+                class="node"
+                tabindex="0"
+                role="button"
+                aria-label="UI용 VPC Service와 Tunnel 설명 보기"
+                data-title="UI VPC Service · 기존 Tunnel"
+                data-detail="배포되어 있는 VPC Service/Tunnel 연결입니다. OCI 프런트 포트에 HTTP로 도달하며 브라우저의 UI 요청을 프런트 컨테이너로 전달합니다."
+                data-source="docs/deployment/npm-preview.md"
+              >
+                <title>UI Worker의 VPC Service와 Tunnel 연결</title>
+                <rect class="node-bg" x="610" y="238" width="190" height="120" rx="16" fill="#f7f4ff" stroke="#c9bcf0" />
+                <circle cx="638" cy="268" r="15" fill="#9179df" />
+                <text class="glyph-text" x="638" y="268">V</text>
+                <text class="node-title" x="663" y="273">VPC Service</text>
+                <text class="node-subtitle" x="628" y="303">기존 Tunnel 연결</text>
+                <text class="node-micro" x="628" y="331">HTTP → OCI loopback</text>
+              </g>
+
+              <g
+                class="node"
+                tabindex="0"
+                role="button"
+                aria-label="Podobank API Worker 설명 보기"
+                data-title="Podobank API Worker"
+                data-detail="공개 API 주소입니다. 프런트 코드가 이 주소를 API base로 사용합니다. API 경로에는 /api 접두어가 없고 Worker나 Nginx의 URI rewrite도 없습니다."
+                data-source="compose.npm-preview.yaml · docs/deployment/npm-preview.md"
+              >
+                <title>Podobank API Worker, API 주소와 기존 경로 유지</title>
+                <rect class="node-bg" x="365" y="500" width="205" height="150" rx="16" fill="#fff" stroke="#c9bcf0" />
+                <circle cx="393" cy="530" r="15" fill="#7554d8" />
+                <text class="glyph-text" x="393" y="530">W</text>
+                <text class="node-title" x="418" y="535">API Worker</text>
+                <text class="node-subtitle" x="382" y="565">podobank-api.i234.workers.dev</text>
+                <text class="node-micro" x="382" y="594">/health · /auth/login</text>
+                <text class="node-micro" x="382" y="617">/accounts/me · rewrite 없음</text>
+              </g>
+
+              <g
+                class="node"
+                tabindex="0"
+                role="button"
+                aria-label="API용 VPC Service와 Tunnel 설명 보기"
+                data-title="API VPC Service · 기존 Tunnel"
+                data-detail="이미 연결된 API Worker의 VPC Service/Tunnel입니다. OCI host의 127.0.0.1:8000으로 HTTP 요청을 넘깁니다."
+                data-source="docs/deployment/npm-preview.md"
+              >
+                <title>API Worker의 VPC Service와 Tunnel 연결</title>
+                <rect class="node-bg" x="610" y="500" width="190" height="150" rx="16" fill="#f7f4ff" stroke="#c9bcf0" />
+                <circle cx="638" cy="530" r="15" fill="#9179df" />
+                <text class="glyph-text" x="638" y="530">V</text>
+                <text class="node-title" x="663" y="535">VPC Service</text>
+                <text class="node-subtitle" x="628" y="565">기존 Tunnel 연결</text>
+                <text class="node-micro" x="628" y="594">HTTP → OCI loopback</text>
+                <text class="node-micro" x="628" y="617">별도 API hostname</text>
+              </g>
+
+              <!-- OCI app containers -->
+              <g
+                class="node"
+                tabindex="0"
+                role="button"
+                aria-label="프런트 Nginx 컨테이너 설명 보기"
+                data-title="Frontend · Nginx"
+                data-detail="Nginx는 빌드된 Vue 정적 파일만 제공합니다. API 프록시 역할을 하지 않습니다. host 127.0.0.1:8081이 컨테이너 80번 포트에 연결됩니다."
+                data-source="frontend/Dockerfile · compose.yaml"
+              >
+                <title>Vue 앱 정적 파일을 제공하는 Nginx 컨테이너</title>
+                <rect class="node-bg" x="910" y="252" width="255" height="140" rx="16" fill="#eaf1ff" stroke="#b8cdf4" />
+                <circle cx="939" cy="283" r="16" fill="#3478f6" />
+                <text class="glyph-text" x="939" y="283">UI</text>
+                <text class="node-title" x="966" y="288">Frontend · Nginx</text>
+                <text class="node-subtitle" x="930" y="322">Vue 빌드 산출물 제공</text>
+                <text class="node-subtitle" x="930" y="344">host 127.0.0.1:8081 → :80</text>
+                <text class="node-micro" x="930" y="372">API 프록시 없음</text>
+              </g>
+
+              <g
+                class="node"
+                tabindex="0"
+                role="button"
+                aria-label="FastAPI 컨테이너 설명 보기"
+                data-title="FastAPI · API 컨테이너"
+                data-detail="고객·직원 API와 상환 CLI가 같은 API 이미지에 있습니다. 계좌·원장·대출 상태 변경은 MariaDB에서 처리합니다. UI Worker origin만 credentialed CORS를 허용하고 앱 쿠키는 Secure·HttpOnly·SameSite=Lax를 사용합니다."
+                data-source="Dockerfile · compose.yaml · backend/podobank_api/app.py"
+              >
+                <title>FastAPI API 컨테이너와 내부 금융 서비스</title>
+                <rect class="node-bg" x="910" y="480" width="255" height="175" rx="16" fill="#eaf1ff" stroke="#b8cdf4" />
+                <circle cx="939" cy="511" r="16" fill="#3478f6" />
+                <text class="glyph-text" x="939" y="511">API</text>
+                <text class="node-title" x="966" y="516">FastAPI</text>
+                <text class="node-subtitle" x="930" y="550">host 127.0.0.1:8000 → :8000</text>
+                <text class="node-subtitle" x="930" y="574">credentialed CORS · UI origin만</text>
+                <text class="node-micro" x="930" y="596">https://podobank.i234.workers.dev</text>
+                <text class="node-micro" x="930" y="619">HttpOnly · Secure · SameSite=Lax</text>
+                <text class="node-micro" x="930" y="641">process-repayments CLI 포함</text>
+              </g>
+
+              <!-- Structured and event stores -->
+              <g
+                class="node"
+                tabindex="0"
+                role="button"
+                aria-label="MariaDB 금융 데이터베이스 설명 보기"
+                data-title="MariaDB · 정형 금융 데이터"
+                data-detail="계정, 잔액, 거래 원장, 대출 데이터를 보관하는 source of truth입니다. API는 금융 상태 변경과 원장 기록을 InnoDB 트랜잭션으로 함께 커밋합니다. 호스트 포트는 127.0.0.1:${DB_PORT:-3306}에만 바인딩되어 공용 인터페이스에 공개되지 않습니다."
+                data-source="compose.yaml · backend/podobank_api/schema.py"
+              >
+                <title>MariaDB 금융 source of truth, named volume mariadb_data</title>
+                <rect class="node-bg" x="1260" y="270" width="290" height="145" rx="16" fill="#e5f7f1" stroke="#a7ddcc" />
+                <circle cx="1290" cy="301" r="16" fill="#12856b" />
+                <text class="glyph-text" x="1290" y="301">SQL</text>
+                <text class="node-title" x="1317" y="306">MariaDB</text>
+                <text class="node-subtitle" x="1280" y="340">정형 금융 데이터 · source of truth</text>
+                <text class="node-subtitle" x="1280" y="362">127.0.0.1:${DB_PORT:-3306} → :3306</text>
+                <text class="node-micro" x="1280" y="380">host loopback only · public port 아님</text>
+                <rect class="volume-pill" x="1280" y="388" width="130" height="22" rx="11" />
+                <text class="volume-text" x="1290" y="403">volume: mariadb_data</text>
+              </g>
+
+              <g
+                class="node"
+                tabindex="0"
+                role="button"
+                aria-label="MongoDB 이벤트 저장소 설명 보기"
+                data-title="MongoDB · API 이벤트"
+                data-detail="성공한 금융 API 작업의 정적 이벤트 필드를 API가 MariaDB commit 뒤 한 번 직접 기록합니다. 최선 노력이며 쓰기 실패나 API 종료 때 이벤트가 누락될 수 있습니다. MariaDB outbox, relay, retry, replay는 없습니다. DB 포트는 host에 공개하지 않습니다."
+                data-source="compose.yaml · backend/podobank_api/features/financial_events/mongodb.py · README.md"
+              >
+                <title>MongoDB best-effort 이벤트 저장소, named volume mongodb_data</title>
+                <rect class="node-bg" x="1260" y="480" width="290" height="160" rx="16" fill="#e5f7f1" stroke="#a7ddcc" />
+                <circle cx="1290" cy="511" r="16" fill="#12856b" />
+                <text class="glyph-text" x="1290" y="511">EV</text>
+                <text class="node-title" x="1317" y="516">MongoDB</text>
+                <text class="node-subtitle" x="1280" y="550">API 이벤트 · best effort</text>
+                <text class="node-subtitle" x="1280" y="572">내부 mongo:27017 · host port 없음</text>
+                <rect class="volume-pill" x="1280" y="592" width="132" height="22" rx="11" />
+                <text class="volume-text" x="1290" y="607">volume: mongodb_data</text>
+                <text class="node-micro" x="1280" y="630">복구용 outbox / relay 없음</text>
+              </g>
+
+              <g
+                class="node"
+                tabindex="0"
+                role="button"
+                aria-label="JSONL 금융 이벤트 파일 설명 보기"
+                data-title="JSONL · 관측 이벤트 파일"
+                data-detail="FastAPI와 상환 CLI가 운영 관측용 이벤트를 JSONL로 씁니다. 이 파일 경로는 MongoDB 이벤트 기록과 독립적이며 Alloy가 읽기 전용으로 수집합니다."
+                data-source="compose.yaml · README.md"
+              >
+                <title>Alloy가 읽는 금융 이벤트 JSONL named volume</title>
+                <rect class="node-bg" x="910" y="725" width="225" height="110" rx="15" fill="#fff2df" stroke="#e7c38f" />
+                <circle cx="938" cy="754" r="15" fill="#c67523" />
+                <text class="glyph-text" x="938" y="754">J</text>
+                <text class="node-title" x="963" y="759">JSONL 파일</text>
+                <text class="node-subtitle" x="929" y="790">financial-events.jsonl</text>
+                <rect class="volume-pill" x="929" y="802" width="155" height="22" rx="11" />
+                <text class="volume-text" x="940" y="817">volume: financial_events</text>
+              </g>
+
+              <!-- Observability pipeline -->
+              <g
+                class="node"
+                tabindex="0"
+                role="button"
+                aria-label="Grafana Alloy 설명 보기"
+                data-title="Grafana Alloy · 수집기"
+                data-detail="JSONL volume을 읽어 구조화 로그를 Loki로 전송하고, 이벤트에서 Prometheus 카운터를 만듭니다. Prometheus는 Compose 내부에서 Alloy의 12345번 metrics endpoint를 scrape합니다. host port는 공개하지 않습니다."
+                data-source="monitoring/alloy/config.alloy · monitoring/prometheus/prometheus.yml"
+              >
+                <title>JSONL 수집, Loki write와 Prometheus metrics 제공을 맡는 Alloy</title>
+                <rect class="node-bg" x="1178" y="725" width="202" height="110" rx="15" fill="#f0ebff" stroke="#c9b9ef" />
+                <circle cx="1207" cy="754" r="15" fill="#7554d8" />
+                <text class="glyph-text" x="1207" y="754">A</text>
+                <text class="node-title" x="1232" y="759">Grafana Alloy</text>
+                <text class="node-subtitle" x="1197" y="790">JSONL parse · label · counter</text>
+                <text class="node-micro" x="1197" y="814">내부 metrics :12345</text>
+              </g>
+
+              <g
+                class="node"
+                tabindex="0"
+                role="button"
+                aria-label="Loki 로그 저장소 설명 보기"
+                data-title="Loki · 이벤트 로그"
+                data-detail="Alloy가 JSONL에서 읽은 구조화 이벤트를 저장합니다. Compose 내부에서만 접근하며 host에 Loki 포트를 공개하지 않습니다. 설정된 보존 기간은 30일입니다."
+                data-source="compose.yaml · monitoring/loki/config.yaml · README.md"
+              >
+                <title>Loki 구조화 이벤트 로그 저장소</title>
+                <rect class="node-bg" x="1450" y="725" width="180" height="110" rx="15" fill="#f0ebff" stroke="#c9b9ef" />
+                <circle cx="1478" cy="754" r="15" fill="#7554d8" />
+                <text class="glyph-text" x="1478" y="754">L</text>
+                <text class="node-title" x="1503" y="759">Loki</text>
+                <text class="node-subtitle" x="1468" y="790">로그 · 30일 보존</text>
+                <text class="node-micro" x="1468" y="814">host port 없음</text>
+              </g>
+
+              <g
+                class="node"
+                tabindex="0"
+                role="button"
+                aria-label="Grafana 설명 보기"
+                data-title="Grafana · 운영 대시보드"
+                data-detail="Loki와 Prometheus가 제공하는 조회 데이터를 대시보드에 표시합니다. Grafana는 로그나 지표를 저장소에 쓰지 않습니다. Grafana만 host 127.0.0.1에 바인딩되어 있으며 외부 공개 주소가 아닙니다."
+                data-source="compose.yaml · monitoring/grafana/provisioning/ · monitoring/grafana/dashboards/"
+              >
+                <title>Loki와 Prometheus를 조회하는 Grafana</title>
+                <rect class="node-bg" x="1930" y="800" width="202" height="130" rx="15" fill="#f0ebff" stroke="#c9b9ef" />
+                <circle cx="1959" cy="829" r="15" fill="#7554d8" />
+                <text class="glyph-text" x="1959" y="829">G</text>
+                <text class="node-title" x="1984" y="834">Grafana</text>
+                <text class="node-subtitle" x="1949" y="864">127.0.0.1:${GRAFANA_PORT:-3000}</text>
+                <text class="node-micro" x="1949" y="891">읽기 전용 · loopback</text>
+              </g>
+
+              <g
+                class="node"
+                tabindex="0"
+                role="button"
+                aria-label="Prometheus 설명 보기"
+                data-title="Prometheus · 운영 지표"
+                data-detail="Alloy의 내부 metrics endpoint를 scrape하고 금융 작업 카운터를 보관합니다. Compose 내부에서만 접근하며 host 포트를 공개하지 않습니다. 보존 기간은 15일입니다."
+                data-source="monitoring/prometheus/prometheus.yml · compose.yaml"
+              >
+                <title>Alloy metrics endpoint를 scrape하는 Prometheus</title>
+                <rect class="node-bg" x="1630" y="875" width="180" height="100" rx="15" fill="#f0ebff" stroke="#c9b9ef" />
+                <circle cx="1658" cy="904" r="15" fill="#7554d8" />
+                <text class="glyph-text" x="1658" y="904">P</text>
+                <text class="node-title" x="1683" y="909">Prometheus</text>
+                <text class="node-subtitle" x="1648" y="940">15일 보존 · host port 없음</text>
+                <text class="node-micro" x="1648" y="960">Alloy metrics scrape</text>
+              </g>
+
+              <!-- Operational notes inside the OCI boundary -->
+              <g aria-label="보존 및 네트워크 메모">
+                <rect class="callout" x="914" y="860" width="220" height="84" rx="13" />
+                <text class="callout-text" x="931" y="887">관측 컨테이너 포트</text>
+                <text class="small-label" x="931" y="910">host에 공개하지 않음</text>
+                <text class="small-label" x="931" y="929">Grafana는 loopback만 공개</text>
+                <text class="small-label" x="1177" y="991">persistent volumes: alloy_data · loki_data · prometheus_data · grafana_data</text>
+              </g>
+
+              <!-- Edge labels are painted after all cards so they stay legible. -->
+              <g class="layer-request" aria-label="요청 경로 라벨">
+                <text class="path-label request" x="300" y="385">HTTPS · UI</text>
+                <text class="path-label request" x="374" y="490">credentialed API · CORS</text>
+                <text class="path-label request" x="808" y="244">HTTP · 127.0.0.1:8081</text>
+                <text class="path-label request" x="808" y="470">HTTP · 127.0.0.1:8000</text>
+              </g>
+              <g class="layer-data" aria-label="금융 데이터 경로 라벨">
+                <text class="path-label data" x="1174" y="435">금융 트랜잭션</text>
+                <text class="path-label data" x="1172" y="578">COMMIT 후 기록</text>
+              </g>
+              <g class="layer-observability" aria-label="관측 경로 라벨">
+                <text class="path-label observe" x="1048" y="700">관측 이벤트</text>
+                <text class="path-label observe" x="1139" y="766">JSONL</text>
+                <text class="path-label observe" x="1386" y="715">Loki write</text>
+                <text class="path-label observe" x="1384" y="868">Alloy metrics → Prometheus scrape</text>
+                <text class="path-label observe" x="1640" y="810">Loki logs → Grafana</text>
+                <text class="path-label observe" x="1818" y="950">Prometheus metrics → Grafana</text>
+              </g>
+            </svg>
+          </div>
+          <div class="legend" aria-label="연결선 범례">
+            <div class="legend-item"><span class="legend-line request"></span><span>브라우저 요청 / Worker 경로</span></div>
+            <div class="legend-item"><span class="legend-line data"></span><span>MariaDB 금융 트랜잭션 / Mongo 이벤트</span></div>
+            <div class="legend-item"><span class="legend-line observe"></span><span>JSONL · 로그·지표·대시보드</span></div>
+                      </div>
+        </div>
+
+        <aside class="detail-card" aria-live="polite" aria-atomic="true">
+          <p class="detail-kicker">Component details</p>
+          <h2 data-detail-title>흐름부터 살펴보기</h2>
+          <p data-detail-body>
+            파란색은 브라우저 요청, 초록색은 금융 데이터와 이벤트, 보라색은 로그·지표와 Grafana가 읽는 조회 데이터입니다.
+            관측 화살표는 데이터를 받는 저장소와 대시보드 방향으로 향하며 Grafana는 로그나 지표를 쓰지 않습니다.
+            구성요소를 선택하면 역할과 설정 출처가 여기에 표시됩니다.
+          </p>
+          <p class="detail-source" data-detail-source><code>노드를 클릭하거나 키보드로 선택하세요.</code></p>
+        </aside>
+      </section>
+
+      <section class="footnotes" aria-label="구조도 참고 사항">
+        <div class="note-card">
+          <strong>개발 프리뷰 안내</strong>
+          <p>
+            공개 Worker 주소를 사용하는 합성 데이터 개발 환경입니다. 운영 은행 구조나 고가용성 배포를 뜻하지 않습니다.
+            MongoDB 이벤트는 MariaDB commit 뒤 API가 한 번 시도하며, 기록 실패 시 유실될 수 있습니다.
+            JSONL 관측 흐름은 MongoDB 이벤트 저장과 독립되어 있습니다.
+          </p>
+        </div>
+        <div class="reference-card">
+          <strong>AWS 자료는 시각 참고용</strong>
+          <p>이 시스템은 AWS에 배포되어 있지 않습니다. AWS 구조도의 경계·화살표 표현만 참고했습니다.</p>
+          <div class="reference-links">
+            <a href="https://aws.amazon.com/architecture/icons/" target="_blank" rel="noreferrer">AWS Architecture Icons</a>
+            <a href="https://aws.amazon.com/blogs/industries/beyond-webhooks-event-driven-payment-architectures-with-amazon-eventbridge/" target="_blank" rel="noreferrer">AWS 결제 이벤트 아키텍처 · 2026-01-14</a>
+          </div>
+        </div>
+      </section>
+      <p class="page-footer">구성 기준: 저장소의 Compose·미리보기 배포 문서 및 2026-11-04 확인.</p>
+    </main>
+
+    <script>
+      (() => {
+        const map = document.querySelector("#architecture-map");
+        const detailCard = document.querySelector(".detail-card");
+        const filterButtons = [...document.querySelectorAll("[data-filter]")];
+        const nodes = [...map.querySelectorAll(".node")];
+        const title = document.querySelector("[data-detail-title]");
+        const body = document.querySelector("[data-detail-body]");
+        const source = document.querySelector("[data-detail-source] code");
+
+        const chooseNode = (node) => {
+          nodes.forEach((candidate) => candidate.classList.toggle("is-selected", candidate === node));
+          title.textContent = node.dataset.title;
+          body.textContent = node.dataset.detail;
+          source.textContent = node.dataset.source;
+        };
+
+        const revealDetails = () => {
+          const behavior = window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth";
+          detailCard.scrollIntoView({ block: "nearest", behavior });
+        };
+
+        nodes.forEach((node) => {
+          node.addEventListener("click", () => {
+            chooseNode(node);
+            revealDetails();
+          });
+          node.addEventListener("focus", () => chooseNode(node));
+          node.addEventListener("keydown", (event) => {
+            if (event.key === "Enter" || event.key === " ") {
+              event.preventDefault();
+              chooseNode(node);
+              revealDetails();
+            }
+          });
+        });
+
+        filterButtons.forEach((button) => {
+          button.addEventListener("click", () => {
+            const filter = button.dataset.filter;
+            const active = button.getAttribute("aria-pressed") !== "true";
+            button.setAttribute("aria-pressed", String(active));
+            map.classList.toggle(`mute-${filter}`, !active);
+          });
+        });
+
+        document.querySelector("[data-reset]").addEventListener("click", () => {
+          filterButtons.forEach((button) => {
+            button.setAttribute("aria-pressed", "true");
+            map.classList.remove(`mute-${button.dataset.filter}`);
+          });
+        });
+      })();
+    </script>
+  </body>
+</html>
