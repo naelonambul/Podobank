@@ -20,5 +20,14 @@
     "checks.json",
     ".github/workflows/repository.yml"
   ],
-  "approvals": []
+  "approvals": [
+    {
+      "artifact": "plan.md",
+      "sha256": "sha256:f1e82db830faea722076dcbf3624ed9335594f19164798a7ac83fbc0baabac25",
+      "by": "naelonambul",
+      "at": "2026-11-03T03:34:15Z",
+      "write_scope_sha256": "sha256:22e130753d2e756b0b379d62ca9720304db3003eff6c041e5f51713cb8d1fc84",
+      "note": "Owner in session: \"\uc2b9\uc778\" (approving the Mac template-sync-1f6cd95 plan, commit 5bf1412, sha256 f1e82db8...)"
+    }
+  ]
 }
