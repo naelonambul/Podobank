@@ -1,0 +1,37 @@
+{
+  "schema": 1,
+  "id": "podobank-worker-hostnames",
+  "kind": "architecture",
+  "title": "Route OCI preview through Cloudflare Workers",
+  "base": {
+    "ref": "main",
+    "commit": "feecdfcddd0e7bb842865af3f59717d732ef6156"
+  },
+  "baseline": {
+    "intent.md": "sha256:713e23285d0340754f840512430a1c1de8dc67bca3018c9bb320a9725d33d420",
+    "spec.md": "sha256:a593b015cd633c4522af7a3183febb72de800432af504be23a77a70216821964"
+  },
+  "write_scope": [
+    ".env.npm-preview",
+    "compose.npm-preview.yaml",
+    ".env.npm-preview.example",
+    "docs/deployment/npm-preview.md",
+    "scripts/verify_ui.py",
+    "spec.md"
+  ],
+  "approvals": [
+    {
+      "artifact": "spec.md",
+      "sha256": "sha256:38b6966a22d5c442d5ab3092ded712adf75d9299531ec4b2133c08cb9472e625",
+      "by": "ckh",
+      "at": "2026-11-03T13:40:40Z"
+    },
+    {
+      "artifact": "plan.md",
+      "sha256": "sha256:b4a0c4f492e5931369a90d3b48f950e57e7ca5525556e1947e08c044f778b3c8",
+      "by": "ckh",
+      "at": "2026-11-03T13:45:38Z",
+      "write_scope_sha256": "sha256:4e2c52a416b84f7dee1a58d3d6dde83a03f2b0d9ada4dab6ad900efb614d247f"
+    }
+  ]
+}

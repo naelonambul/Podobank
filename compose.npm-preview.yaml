@@ -9,7 +9,7 @@ services:
   frontend:
     build:
       args:
-        VITE_API_ORIGIN: https://podobank-api.oci-dev.duckdns.org
+        VITE_API_ORIGIN: https://podobank-api.i234.workers.dev
     networks:
       default: {}
       npm-proxy:

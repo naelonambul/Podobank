@@ -1,146 +1,94 @@
-# PodoBank preview through Nginx Proxy Manager
+# PodoBank preview through Cloudflare Workers
 
-This optional deployment serves the UI at `https://podobank.oci-dev.duckdns.org` and the API at `https://podobank-api.oci-dev.duckdns.org`. Nginx Proxy Manager (NPM) terminates HTTPS on two Proxy Hosts: the UI host forwards to Vue and the API host forwards to FastAPI. The default local Compose setup is unchanged.
+The preview is available at `https://podobank.i234.workers.dev` (UI) and `https://podobank-api.i234.workers.dev` (API). The `podobank` and `podobank-api` Workers and their VPC Service bindings are already deployed. The existing Tunnel connects them to OCI over HTTP:
 
-This is a synthetic-data development demo, not a production deployment. Both NPM Proxy Hosts are public without an Access List. UI screens still require the application's customer or bank employee login. The API host is directly reachable from the internet, including unauthenticated routes such as `/health` and `/auth/login`. CORS only restricts browser JavaScript; it does not authenticate non-browser clients. User financial routes still require the application's JWT session and DB role.
+| Public URL | Existing VPC Service upstream | Service |
+| --- | --- | --- |
+| `https://podobank.i234.workers.dev` | `http://127.0.0.1:8081` | Vue UI served by Nginx |
+| `https://podobank-api.i234.workers.dev` | `http://127.0.0.1:8000` | FastAPI |
 
-## Prerequisites
+Keep the API's current root paths such as `/health`, `/auth/login`, and `/accounts/me`. Do not add an `/api` prefix or URI rewriting in Worker code or Nginx. The frontend image receives the API Worker URL as its build-time `VITE_API_ORIGIN`.
 
-- Both `podobank.oci-dev.duckdns.org` and `podobank-api.oci-dev.duckdns.org` must resolve to this server before requesting certificates.
-- The existing NPM container must be attached to the Docker network named `nginx-proxy-manager` (or set `NPM_DOCKER_NETWORK` to its actual network name).
-- NPM must accept inbound ports 80 and 443 for certificate validation and HTTPS traffic.
-- The operator must have an authenticated NPM admin session. Do not put NPM admin credentials in Git, repository env files, or chat.
+This is a synthetic-data development preview, not a production deployment. The API hostname is publicly reachable, including unauthenticated routes such as `/health` and `/auth/login`; CORS only constrains browser JavaScript and does not authenticate non-browser clients. User financial routes still require the application's JWT session and DB role. Do not use real customer data or production credentials.
 
-Check the Docker network and DNS before starting. If NPM uses a network other than `nginx-proxy-manager`, set `NPM_DOCKER_NETWORK` to that name in the shell and use the same value in `.env.npm-preview`:
+## Existing services and network boundaries
 
-```sh
-NPM_DOCKER_NETWORK="${NPM_DOCKER_NETWORK:-nginx-proxy-manager}"
-docker network inspect "$NPM_DOCKER_NETWORK"
-getent ahosts podobank.oci-dev.duckdns.org podobank-api.oci-dev.duckdns.org
+- Do not edit or restart Cloudflare Workers, the Cloudflare Tunnel, VPC Services, Nginx Proxy Manager (NPM), MariaDB, MongoDB, monitoring services, or any shared volume for this preview update.
+- The Compose overlay keeps its existing NPM network attachments and aliases for compatibility. Worker routing uses the existing host loopback ports and does not require NPM changes.
+- The API and database host ports remain bound to `127.0.0.1`; do not publish either port on a public interface.
+- Keep `APP_ENV=development`, `AUTH_COOKIE_SECURE=true`, the current database credentials, and all existing secret values. The Kakao REST API key and client secret remain placeholders until Kakao OAuth is configured.
+- In `.env.npm-preview`, use these exact routing values:
+
+```dotenv
+API_ORIGIN=https://podobank-api.i234.workers.dev
+FRONTEND_ORIGINS=https://podobank.i234.workers.dev
+KAKAO_REDIRECT_URI=https://podobank.i234.workers.dev/auth/kakao/callback
 ```
 
-If either name does not resolve to this server, configure its DuckDNS record before requesting a certificate. Do not publish either host before its certificate is valid. Both hosts must use `Publicly Accessible` with no NPM Access List.
+The frontend build uses `https://podobank-api.i234.workers.dev`. Vue sends credentialed requests to the API Worker. FastAPI allows only the UI Worker origin with credential support. The API session cookie remains Secure, HttpOnly, and SameSite=Lax.
 
-## Prepare local environment files
+## Environment files
 
-The repository ignores `.env.npm-preview` and `.env.npm-preview.db`. Keep the existing `.env` unchanged. Create the preview files only when they do not already exist:
+Use the existing `.env.npm-preview` and `.env.npm-preview.db` files from the active Compose project. Do not recreate or replace either file if it already exists. Keep both files ignored and mode `0600`. The database-only file supplies MariaDB startup variables; it is not modified by this routing change.
+
+The checked-in `.env.npm-preview.example` contains replaceable values for local preparation. It keeps `APP_ENV=development` and Kakao placeholders. Never print or commit `.env.npm-preview`, `.env.npm-preview.db`, or their secret values.
+
+When the source checkout and active runtime env files are in different directories, set these shell variables to their existing locations. Do not copy secrets into the source checkout:
 
 ```sh
-if [ ! -e .env.npm-preview ]; then
-  install -m 600 .env.npm-preview.example .env.npm-preview
-fi
-if [ ! -e .env.npm-preview.db ]; then
-  install -m 600 .env.npm-preview.db.example .env.npm-preview.db
-fi
-agent-git check-ignore -v .env.npm-preview .env.npm-preview.db
+PODOBANK_SOURCE_DIR=/path/to/Podobank
+PREVIEW_ENV_DIR=/path/to/active/preview
 ```
 
-Replace every `replace-with-...` value before starting the preview:
+## Validate and rebuild only the application containers
 
-- Use the same `MARIADB_DATABASE`, `MARIADB_USER`, and `MARIADB_PASSWORD` as the existing development database in both preview files. Put the existing root password only in `.env.npm-preview.db`. Do not change database credentials or initialize/reset the existing database as part of this setup.
-- Set `COMPOSE_DATABASE_URL` to the matching database URL. Percent-encode reserved characters in the URL password component if the existing DB password contains any.
-- Generate a unique `JWT_SECRET` with `openssl rand -hex 32` and set unique, strong bank employee and demo customer passwords. Do not reuse the documented local demo defaults.
-- Keep `APP_ENV=development` and `AUTH_COOKIE_SECURE=true`. Set `API_ORIGIN=https://podobank-api.oci-dev.duckdns.org`, `FRONTEND_ORIGINS=https://podobank.oci-dev.duckdns.org`, and `KAKAO_REDIRECT_URI=https://podobank.oci-dev.duckdns.org/auth/kakao/callback` exactly.
-- The preview can use the seeded local demo login without Kakao. Kakao OAuth remains unavailable while its provider credentials are placeholders; enabling it also requires registering the HTTPS callback with Kakao.
-- Keep `NPM_DOCKER_NETWORK` equal to the existing NPM Docker network name.
-
-The DB-only file is mounted into MariaDB as its `env_file`; application signing and login secrets stay out of that container. The preview frontend API base is set by the overlay to `https://podobank-api.oci-dev.duckdns.org`.
-
-## Start the preview containers
-
-Validate the merged Compose model, then build and start the API and frontend under the existing Compose project name. The API may start its declared `db` dependency if it is stopped; existing named volumes are retained.
+First validate the merged Compose model. `config --quiet` does not print resolved secret values:
 
 ```sh
-COMPOSE_ENV_FILE=.env.npm-preview.db \
+COMPOSE_ENV_FILE="$PREVIEW_ENV_DIR/.env.npm-preview.db" \
 docker compose --project-name podobank \
-  --env-file .env.npm-preview \
-  -f compose.yaml -f compose.npm-preview.yaml \
+  --env-file "$PREVIEW_ENV_DIR/.env.npm-preview" \
+  -f "$PODOBANK_SOURCE_DIR/compose.yaml" \
+  -f "$PODOBANK_SOURCE_DIR/compose.npm-preview.yaml" \
   config --quiet
-
-COMPOSE_ENV_FILE=.env.npm-preview.db \
-docker compose --project-name podobank \
-  --env-file .env.npm-preview \
-  -f compose.yaml -f compose.npm-preview.yaml \
-  up -d --build api frontend
 ```
 
-Only the API and frontend join the external NPM network. MariaDB remains on the PodoBank default network. Their stable NPM network aliases are `podobank-api` and `podobank-frontend`.
-
-## Set demo login credentials and load sample data
-
-The preview overlay does not change database contents on startup. After the API is healthy, initialize any missing default schema, explicitly rotate the configured bank employee and fixed demo customer to the unique passwords in `.env.npm-preview`, then add the 10,000-customer synthetic sample dataset:
+Rebuild only API and frontend. `--no-deps` prevents Compose from starting, stopping, or recreating MariaDB or another dependency:
 
 ```sh
-COMPOSE_ENV_FILE=.env.npm-preview.db \
+COMPOSE_ENV_FILE="$PREVIEW_ENV_DIR/.env.npm-preview.db" \
 docker compose --project-name podobank \
-  --env-file .env.npm-preview \
-  -f compose.yaml -f compose.npm-preview.yaml \
-  exec -T api podobank-api init-db
-
-COMPOSE_ENV_FILE=.env.npm-preview.db \
-docker compose --project-name podobank \
-  --env-file .env.npm-preview \
-  -f compose.yaml -f compose.npm-preview.yaml \
-  exec -T api podobank-api set-demo-credentials
-
-COMPOSE_ENV_FILE=.env.npm-preview.db \
-docker compose --project-name podobank \
-  --env-file .env.npm-preview \
-  -f compose.yaml -f compose.npm-preview.yaml \
-  exec -T api podobank-api seed-demo-data
+  --env-file "$PREVIEW_ENV_DIR/.env.npm-preview" \
+  -f "$PODOBANK_SOURCE_DIR/compose.yaml" \
+  -f "$PODOBANK_SOURCE_DIR/compose.npm-preview.yaml" \
+  up -d --build --no-deps api frontend
 ```
 
-`init-db` creates missing schema and default records but does not reset existing data; it preserves existing account balances and non-null password hashes. Run it only when the approved deployment plan includes the bootstrap step. Credential rotation and sample seeding are restricted to `APP_ENV=development` and the local `podobank_dev` database. Credential rotation changes only the configured bank employee and fixed demo customer's password hashes. The sample command is explicit and additive; it reports the customer, account, ledger, loan, and repayment counts and is safe to repeat after a completed seed. Do not use the local default passwords in the preview env file.
+Do not run `down`, `down -v`, database initialization/reset, credential rotation, or sample-data commands as part of updating preview routing. Capture the IDs and running states of `db`, `mongo`, monitoring, NPM, and other shared containers before and after; they must remain unchanged.
 
-## Configure NPM
+## Verify public access
 
-In the NPM admin UI, leave both hosts publicly accessible without an Access List:
-
-1. Under **Hosts → Proxy Hosts**, add the UI host `podobank.oci-dev.duckdns.org` with:
-   - Scheme: `http`
-   - Forward Hostname / IP: `podobank-frontend`
-   - Forward Port: `80`
-   - Access List: `Publicly Accessible`
-   - Block Common Exploits: enabled
-2. In the UI host's **SSL** tab, request a certificate for `podobank.oci-dev.duckdns.org`, enable **Force SSL**, and save only after the certificate is valid.
-3. Add a second Proxy Host for the API hostname `podobank-api.oci-dev.duckdns.org` with:
-   - Scheme: `http`
-   - Forward Hostname / IP: `podobank-api`
-   - Forward Port: `8000`
-   - Access List: `Publicly Accessible`
-   - Block Common Exploits: enabled
-4. In the API host's **SSL** tab, request a certificate for `podobank-api.oci-dev.duckdns.org`, enable **Force SSL**, and save only after the certificate is valid. Do not add a Custom Location or path rewrite to either host.
-
-No NPM custom Advanced config is needed. Do not expose the API or database with new host ports. The API's public exposure is intentional for this development preview; keep real customer data and production credentials out of it.
-
-## Verify access
-
-Both hosts should respond without an NPM authentication prompt:
+The UI root and API health route should respond successfully:
 
 ```sh
-curl -fsS https://podobank.oci-dev.duckdns.org/
-curl -fsS https://podobank-api.oci-dev.duckdns.org/health
+curl -fsS https://podobank.i234.workers.dev/
+curl -fsS https://podobank-api.i234.workers.dev/health
 ```
 
-The UI should return its Vue app and API `/health` should return HTTP `200`. Check that the API accepts a preflight from the exact UI origin:
+Check credentialed CORS from the exact UI origin:
 
 ```sh
 curl --include --request OPTIONS \
-  --header 'Origin: https://podobank.oci-dev.duckdns.org' \
+  --header 'Origin: https://podobank.i234.workers.dev' \
   --header 'Access-Control-Request-Method: POST' \
   --header 'Access-Control-Request-Headers: content-type' \
-  https://podobank-api.oci-dev.duckdns.org/auth/login
+  https://podobank-api.i234.workers.dev/auth/login
 ```
 
-The response must allow only `https://podobank.oci-dev.duckdns.org` and include credential support. Then open `https://podobank.oci-dev.duckdns.org/accounts` in a browser without an NPM prompt and sign in with a seeded demo customer or bank employee account. The frontend calls the separate API host with credentials enabled; its Secure, HttpOnly, SameSite=Lax session cookie is scoped to the API host.
+The response must allow `https://podobank.i234.workers.dev`, include credential support, and not allow unrelated origins. Open `https://podobank.i234.workers.dev/accounts` and sign in with an existing demo customer or bank employee account. Browser API calls must use existing paths such as `/auth/login` and `/accounts/me`, with credentials included.
+
+The application login flow is the authentication boundary for customer and employee screens. Kakao login remains unavailable while provider credentials are placeholders; local demo login continues to work.
 
 ## Roll back
 
-First disable or remove both NPM Proxy Hosts. From the primary checkout with its existing `.env`, restore the base local configuration:
-
-```sh
-env -u COMPOSE_ENV_FILE docker compose --project-name podobank \
-  --env-file .env -f compose.yaml up -d --build api frontend
-```
-
-This returns the frontend to its direct local API origin. Do not run `docker compose down -v`, delete named volumes, or reset sample data as part of rollback.
+If the Worker preview needs to be rolled back, restore the previous DuckDNS values in `compose.npm-preview.yaml`, `.env.npm-preview.example`, and only the three corresponding URL keys in the existing `.env.npm-preview`. Rebuild only API and frontend with the same `--no-deps` command. Do not change NPM configuration, stop shared services, alter database credentials, or remove volumes.
