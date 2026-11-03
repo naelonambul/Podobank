@@ -2,7 +2,7 @@
 
 ## Summary
 
-포도뱅크(PodoBank)는 개발 부트캠프 팀 포트폴리오용 가상 은행 앱이다. 이번 초기 구현은 카카오 로그인, 조건부 로컬 로그인, 기본 계좌 발급, 입출금, 계좌 이체, 대출을 제공한다. 체크카드는 이번 범위에서 제외하고 결제는 계좌 이체로 처리한다. 금융 서비스의 실패·성공 관측 이벤트는 JSONL에서 Grafana Alloy를 거쳐 Loki와 Prometheus로 전달한다. API는 커밋된 금융 상태 변경에 대한 개인정보 최소화 이벤트를 MongoDB에 직접 최선 노력 방식으로 기록한다. MariaDB는 금융 업무 데이터의 원본이며 MongoDB 기록 실패가 금융 거래를 되돌리거나 재시도 대상으로 만들지 않는다. Docker Compose로 필요한 서비스를 실행한다. 로컬 개발은 브라우저가 FastAPI에 직접 요청하고, 원격 미리보기는 Nginx Proxy Manager(NPM)가 Vue 앱과 HTTPS API 경로를 제공한다.
+포도뱅크(PodoBank)는 개발 부트캠프 팀 포트폴리오용 가상 은행 앱이다. 이번 초기 구현은 카카오 로그인, 조건부 로컬 로그인, 기본 계좌 발급, 입출금, 계좌 이체, 대출을 제공한다. 체크카드는 이번 범위에서 제외하고 결제는 계좌 이체로 처리한다. 금융 서비스의 실패·성공 관측 이벤트는 JSONL에서 Grafana Alloy를 거쳐 Loki와 Prometheus로 전달한다. API는 커밋된 금융 상태 변경에 대한 개인정보 최소화 이벤트를 MongoDB에 직접 최선 노력 방식으로 기록한다. MariaDB는 금융 업무 데이터의 원본이며 MongoDB 기록 실패가 금융 거래를 되돌리거나 재시도 대상으로 만들지 않는다. Docker Compose로 필요한 서비스를 실행한다. 로컬 개발은 브라우저가 FastAPI에 직접 요청하고, 원격 미리보기는 별도 Cloudflare Workers URL을 통해 기존 Cloudflare Tunnel의 VPC Service로 OCI의 Vue 및 FastAPI loopback 포트에 연결한다.
 
 ## Requirements
 
@@ -11,7 +11,7 @@
 - **FR-1 초기 기능 범위:** 이번 구현은 입출금, 계좌 이체, 대출을 제공한다. 체크카드 기능은 포함하지 않는다.
 - **FR-2 가입과 계좌 발급:** 고객은 카카오 로그인으로 가입하고 가입 과정에서 휴대전화번호, 나이, 성별(남성/여성), 혼인 상태(미혼/기혼), 직장 유무를 입력한다. 휴대전화번호는 중복 여부만 확인하며 SMS 인증은 하지 않는다. 신규 사용자의 첫 로그인 때 기본 계좌를 하나 자동 발급하고, 다음 로그인부터 기존 계좌를 사용한다. 사전 등록한 데모 사용자는 가상 번호와 프로필 값을 쓴다.
 - **FR-3 로그인 세션:** 카카오 또는 로컬 로그인 성공 후 서버는 JWT를 HttpOnly 쿠키로 설정한다. API는 해당 세션과 사용자의 DB 역할을 확인한다.
-- **FR-4 화면 서빙, 은행 API와 CORS:** Nginx가 Vue 3 정적 앱을 서빙하고 FastAPI는 금융 API를 전담한다. 로컬 개발에서 브라우저는 설정된 FastAPI origin에 직접 요청한다. 원격 미리보기에서 `podobank.oci-dev.duckdns.org`는 Vue 앱을, `podobank-api.oci-dev.duckdns.org`는 FastAPI를 각각 제공한다. 미리보기 빌드는 API 호스트를 API base로 사용한다. FastAPI는 환경별로 명시된 프론트엔드 origin만 CORS 허용 목록에 두고 credential 포함 요청을 허용한다. JWT 쿠키를 전달하기 위해 Vue 요청은 credentials를 포함하며, 허용 origin·HTTP method·header를 명시하고 credentials 사용 시 와일드카드(`*`)를 쓰지 않는다.
+- **FR-4 화면 서빙, 은행 API와 CORS:** Nginx가 Vue 3 정적 앱을 서빙하고 FastAPI는 금융 API를 전담한다. 로컬 개발에서 브라우저는 설정된 FastAPI origin에 직접 요청한다. 원격 미리보기 UI는 `https://podobank.i234.workers.dev`, API는 `https://podobank-api.i234.workers.dev`에서 제공한다. 두 배포된 Worker는 기존 Tunnel VPC Service를 통해 각각 OCI의 HTTP loopback upstream `127.0.0.1:8081`과 `127.0.0.1:8000`으로 연결한다. 미리보기 빌드는 API Worker origin을 API base로 사용하고 API 경로(`/health`, `/auth/...`, `/accounts/...` 등)를 그대로 요청한다. `/api` 접두사, Worker 코드의 URI 변환, Nginx path rewrite는 사용하지 않는다. FastAPI는 UI Worker의 정확한 origin만 CORS 허용 목록에 두고 credential 포함 요청을 허용한다. JWT 쿠키를 전달하기 위해 Vue 요청은 credentials를 포함하며, 허용 origin·HTTP method·header를 명시하고 credentials 사용 시 와일드카드(`*`)를 쓰지 않는다.
 - **FR-5 입출금과 이체:** 입금은 잔액을 늘리고, 출금과 계좌 이체는 보내는 계좌 잔액을 줄인다. 이체는 받는 계좌 잔액도 늘린다. 결제 동작도 계좌 이체로 처리한다. 받는 사용자는 계좌번호, 휴대전화번호, 사용자 목록에서 찾을 수 있어야 한다.
 - **FR-6 잔액 부족:** 출금·이체·결제 시 잔액이 부족하면 거래를 실패 처리하고 계좌 잔액을 변경하지 않는다.
 - **FR-7 대출:** 대출 상품은 데이터베이스에 미리 등록한다. 사용자는 신청 중이거나 상환 중인 대출이 없을 때 상품 하나를 신청할 수 있다. 은행 직원은 상품 조건을 바꾸지 않고 승인하거나 거절한다. 승인 즉시 상품 금액은 신청자의 계좌에 입금된다. 대출은 이자 없이 매월 1일 자동 상환하며, 첫 상환은 승인일로부터 한 달이 지난 뒤의 1일부터 시작한다. 월 상환액은 원금을 상환 개월 수로 나누며, 원금은 개월 수로 나누어 떨어져야 한다. 거절되거나 전액 상환된 뒤에는 새 대출을 신청할 수 있다.
@@ -21,7 +21,7 @@
 - **FR-11 관측 저장:** Loki에서 구조화 금융 이벤트를 조회하고 Prometheus에서 `podobank_financial_operations_total{operation,outcome,reason}` 카운터를 조회한다. Alloy는 이벤트를 파싱해 카운터를 만들고 Prometheus는 Alloy의 내부 메트릭 엔드포인트를 스크랩한다. 카운터는 서비스 호출 한 번을 세며 `repayment_batch`도 배치 실행 한 번으로 센다. Grafana는 두 데이터 소스를 자동 설정하고 성공·실패 추이와 최근 이벤트를 표시하는 대시보드를 파일에서 프로비저닝한다. Loki 보존 기간은 30일, Prometheus 보존 기간은 15일이다.
 - **FR-12 개발 서비스 실행:** 개발·데모 환경의 컨테이너 서비스를 Docker Compose로 정의한다. MariaDB는 금융 업무 데이터의 유일한 원본이며 데이터는 영속 볼륨에 저장한다. FastAPI는 MariaDB health check가 통과한 뒤 연결한다. 관측 스택은 Grafana Alloy, Loki, Prometheus, Grafana 및 각 저장 볼륨을 사용한다. MongoDB 7.0.45는 호스트 포트와 NPM 네트워크에 공개하지 않는 전용 영속 서비스다. `.env.example`과 로컬 `.env`는 API가 사용할 `MONGO_URL=mongodb://mongo:27017`과 `MONGO_DB_NAME=podobank_events`를 제공한다. FastAPI 금융 서비스는 MariaDB 트랜잭션 커밋 뒤 허용된 이벤트 문서를 MongoDB에 직접 기록하며 MongoDB는 API 기동이나 금융 트랜잭션의 필수 의존성이 아니다. 별도 적재기, 아웃박스, 재생 기능은 두지 않는다. 최종 제품 구성에는 UI 단계에서 추가한 Nginx도 포함한다.
 - **FR-13 로컬 로그인:** 은행 직원은 카카오 계정 없이 휴대전화번호와 비밀번호로 로그인한다. 고객은 가입할 때 비밀번호를 선택적으로 설정할 수 있고, 비밀번호를 비워 두면 카카오 로그인만 가능하다. 고객은 카카오 로그인 상태에서 비밀번호를 설정한 뒤 로컬 로그인을 사용할 수 있다. 로컬 로그인은 비밀번호가 설정된 계정에만 허용한다. 로컬 로그인도 FR-3과 동일한 JWT HttpOnly 쿠키 세션을 발급하며, 권한은 DB의 계정 등급으로 판별한다.
-- **FR-14 HTTPS 원격 미리보기:** 팀원은 `https://podobank.oci-dev.duckdns.org`에서 데모 화면을 보고 `https://podobank-api.oci-dev.duckdns.org`에서 API를 사용할 수 있다. NPM은 두 호스트의 TLS를 각각 종료해 프론트엔드와 API 컨테이너에 전달하며 두 호스트 모두 Access List 없이 공개한다. 사용자는 UI를 NPM 인증 없이 열고 앱의 고객 또는 직원 로그인으로 인증한다. API는 UI origin만 CORS 허용하고 사용자 금융 기능은 JWT 세션과 DB 역할로 보호한다. CORS는 비브라우저 클라이언트의 접근을 막지 않으므로 두 호스트 모두 인터넷에서 직접 접근 가능하다. `/health`, `/auth/login` 등 앱 세션이 필요하지 않은 API 경로도 인터넷에서 도달할 수 있으므로 이 미리보기는 합성 개발 데이터만 사용한다. 프록시 네트워크에는 프론트엔드와 API만 연결하고 데이터베이스는 연결하지 않는다. 미리보기 Compose 설정은 별도 overlay로 제공하여 기본 로컬 개발 구성을 바꾸지 않는다.
+- **FR-14 HTTPS 원격 미리보기:** 팀원은 `https://podobank.i234.workers.dev`에서 데모 UI를, `https://podobank-api.i234.workers.dev`에서 API를 사용한다. Cloudflare Workers와 기존 Tunnel VPC Service가 HTTPS 공개 URL을 OCI의 HTTP loopback upstream으로 전달한다. UI Worker는 `127.0.0.1:8081`, API Worker는 `127.0.0.1:8000`에 연결한다. API 경로는 `/health`, `/auth/login`처럼 현재 FastAPI 경로를 그대로 유지한다. `/api` 접두사나 Worker/Nginx URI 변환은 추가하지 않는다. 두 Worker URL은 Access 정책 없이 공개하고 UI는 앱의 고객 또는 직원 로그인으로 보호한다. API는 UI Worker origin만 CORS 허용하고 사용자 금융 기능은 JWT 세션과 DB 역할로 보호한다. CORS는 비브라우저 클라이언트의 접근을 막지 않으므로 API의 세션 없는 경로도 인터넷에서 도달 가능하며 미리보기는 합성 개발 데이터만 사용한다. API 및 DB 포트는 loopback 바인딩을 유지하고 직접 공개하지 않는다. 이 변경은 NPM, MariaDB, MongoDB, 영속 볼륨, 관측 서비스 또는 기타 공유 서비스를 변경하거나 중지하지 않는다. 미리보기 Compose 설정은 별도 overlay로 제공하여 기본 로컬 개발 구성을 바꾸지 않는다.
 - **FR-15 커밋 이벤트 직접 기록:** 금융 상태를 성공적으로 바꾸는 API 서비스는 MariaDB 트랜잭션이 커밋된 뒤 해당 성공 이벤트를 MongoDB에 직접 한 번 기록한다. 이벤트 문서는 허용된 정적 필드와 기술적 UUID만 포함한다. MongoDB 기록은 best-effort이며 큐잉, 재시도, 재생, 전달 보장 기능을 제공하지 않는다. MongoDB 연결 또는 기록 실패는 이미 커밋된 금융 거래의 성공 응답이나 DB 상태를 바꾸지 않는다. 자동 상환 배치는 각 회차 상태 변경이 커밋된 뒤 해당 이벤트를 기록하며, 기존 JSONL의 배치 집계 이벤트는 실행당 한 건으로 유지한다.
 - **FR-16 이벤트 실패 처리:** MongoDB 기록 장애, API 프로세스 중단 또는 네트워크 오류로 성공 이벤트가 MongoDB에 남지 않을 수 있다. 이 손실 가능성은 의도된 동작이며 별도 유실 방지 경계를 만들지 않는다. 실패한 금융 서비스 시도는 MongoDB에 기록하지 않고 기존 JSONL 성공·실패 관측 경로를 유지한다.
 
@@ -44,7 +44,7 @@
 - **NFR-5 금융 동작 격리:** JSONL 파일·Loki·Prometheus·MongoDB의 기록 장애는 이미 커밋된 금융 동작의 결과를 바꾸지 않는다. MongoDB 연결은 금융 DB 트랜잭션 커밋 뒤 제한 시간 안에 한 번 시도하며 오류는 금융 응답에 전파하지 않는다. MongoDB 장애는 API 기동과 금융 요청 처리를 막지 않는다. 관측·이벤트 구성은 개발·데모용이며 운영 배포의 가용성 보장은 범위에 포함하지 않는다.
 - **NFR-7 MongoDB 격리:** MongoDB는 개발·데모 Compose 서비스로만 실행하고 호스트나 NPM 네트워크에 포트를 공개하지 않는다. FastAPI만 MongoDB 이벤트 writer로 직접 연결하며, MongoDB 연결 확인은 API 기동을 막지 않는다. MongoDB 7.0은 2027-08-31 지원 종료 전에 호스트 커널 호환성을 해결한 뒤 지원 중인 주요 버전으로 올린다.
 - **NFR-8 이벤트 전달과 보존:** 성공 금융 변경 이벤트는 API가 MariaDB 커밋 뒤 MongoDB에 한 번 기록을 시도한다. MongoDB 장애·프로세스 중단·네트워크 오류 때 이벤트가 누락될 수 있으며 이를 복구하지 않는다. 아웃박스, 재시도, 재생 또는 이벤트 보존 원본은 두지 않는다.
-- **NFR-6 원격 미리보기 보안:** 원격 미리보기 UI와 API 모두 HTTPS를 사용하고 NPM Access List 없이 공개한다. UI의 고객·직원 화면은 앱 로그인이 필요하다. API는 `AUTH_COOKIE_SECURE=true`, UI origin만 허용하는 credentialed CORS, JWT 세션 및 DB 역할 검증을 사용한다. CORS는 비브라우저 요청의 접근 제어가 아니다. `/health`, `/auth/login` 등 앱 세션이 필요하지 않은 경로도 인터넷에서 도달 가능하다. API는 합성 개발 데이터만 제공하고 기본 개발 JWT 키, 직원 비밀번호, 데모 고객 비밀번호를 사용하지 않는다. 미리보기 구성에서 MariaDB 포트는 NPM 네트워크에 노출하지 않는다. 이 환경은 운영 배포가 아니다.
+- **NFR-6 원격 미리보기 보안:** 원격 미리보기 UI와 API는 Cloudflare Workers의 HTTPS URL로 공개한다. API와 프런트 빌드 설정은 각각 UI/API origin을 정확히 지정하고 credentialed CORS를 사용한다. `AUTH_COOKIE_SECURE=true`, HttpOnly 및 SameSite=Lax JWT 쿠키, 앱 세션 및 DB 역할 검증을 유지한다. CORS는 비브라우저 요청의 접근 제어가 아니다. `/health`, `/auth/login` 등 앱 세션이 필요하지 않은 경로도 인터넷에서 도달 가능하다. API는 합성 개발 데이터만 제공하고 기본 개발 JWT 키, 직원 비밀번호, 데모 고객 비밀번호를 사용하지 않는다. API와 MariaDB 포트는 호스트 loopback에만 바인딩하며 Cloudflare Tunnel을 통한 API 노출 외에 직접 공개하지 않는다. 이 환경은 운영 배포가 아니다.
 
 ## User experience and behavior
 
@@ -82,9 +82,9 @@
 
 `로컬 브라우저 → FastAPI (금융 API 직접 호출)`
 
-`미리보기 브라우저 → NPM HTTPS UI host → Vue 3`
+`미리보기 브라우저 → https://podobank.i234.workers.dev → 기존 Tunnel VPC Service → OCI HTTP 127.0.0.1:8081 → Vue 3`
 
-`미리보기 브라우저 → NPM HTTPS API host → FastAPI`
+`미리보기 브라우저 → https://podobank-api.i234.workers.dev → 기존 Tunnel VPC Service → OCI HTTP 127.0.0.1:8000 → FastAPI`
 
 `FastAPI 데이터베이스: MariaDB`
 
@@ -104,19 +104,19 @@ FastAPI는 기존 금융 업무를 위해 MariaDB에 연결하고, 성공한 금
 - `app.py`는 Mongo 클라이언트의 수명 주기를 관리하거나 이벤트 writer에 클라이언트를 주입한다. MongoDB 연결 실패가 API 기동을 막지 않도록 연결은 지연하고 작업 실패를 금융 응답과 분리한다.
 - 허용 의존은 `transactions/loans → financial_events writer → PyMongo` 및 기존 `transactions/loans → SQLAlchemy Connection`이다. 금융 DB 작업이 MongoDB에 연결되거나 JSONL 관측 경로가 MongoDB에 의존하지 않는다.
 
-로컬 개발에서는 Vue가 FastAPI origin을 직접 호출한다. 원격 미리보기는 NPM의 UI 호스트를 프론트엔드 컨테이너에, 별도 API 호스트를 FastAPI 컨테이너에 전달한다. 미리보기 빌드는 browser-visible API base로 `https://podobank-api.oci-dev.duckdns.org`를 사용한다. 두 호스트는 같은 사이트의 서로 다른 origin이므로 API의 HTTPS 전용, HttpOnly, SameSite=Lax 쿠키를 credential 포함 요청으로 전달한다. FastAPI CORS는 UI origin과 필요한 HTTP method·header만 허용하고 credentials를 허용한다. credentials를 허용할 때 origin·method·header에 와일드카드(`*`)를 사용하지 않는다. NPM은 어느 호스트에도 Access List를 요구하지 않으며 앱 로그인과 API 권한 검증은 그대로 유지한다.
+로컬 개발에서는 Vue가 FastAPI origin을 직접 호출한다. 원격 미리보기는 두 배포된 Worker를 통해 UI와 API를 별도 HTTPS 호스트로 제공하며, 기존 Tunnel의 VPC Service가 OCI의 HTTP loopback upstream에 연결한다. 미리보기 빌드는 browser-visible API base로 `https://podobank-api.i234.workers.dev`를 사용하고 UI는 기존 API path(`/auth/...`, `/accounts/...` 등)를 그대로 호출한다. 같은 Cloudflare account subdomain 아래의 두 Worker hostname은 별도 origin이므로 API는 UI origin의 CORS 요청만 허용하고 credentials를 지원한다. JWT 쿠키는 Secure, HttpOnly, SameSite=Lax를 유지한다. credentials를 허용할 때 origin·method·header에 와일드카드(`*`)를 사용하지 않는다. Worker의 공개 주소 외에 API/DB 컨테이너 포트를 인터넷에 직접 공개하지 않으며 NPM 설정은 변경하지 않는다.
 
 ## Remote preview design decision
 
 - **Intent:** 팀원이 운영 중인 개발 서버에서 기존 화면을 HTTPS로 열어 리뷰할 수 있게 한다.
-- **Goals:** UI와 API용 전용 HTTPS URL 두 개, 기존 NPM 사용, 교차 origin API 세션 쿠키 동작, DB를 프록시 네트워크에서 격리, 기본 로컬 Compose 구성을 그대로 유지.
+- **Goals:** UI와 API용 전용 HTTPS Worker URL 두 개, 이미 배포된 Cloudflare Workers와 기존 Tunnel VPC Services 사용, 기존 API path 및 세션 쿠키 동작 유지, API/DB의 직접 공개 방지, 기본 로컬 Compose 구성 유지, NPM과 모든 공유 서비스를 변경·중지하지 않음.
 - **Non-goals:** 운영 배포, 실제 금융 데이터, 외부 공개 가입, NPM 자체 설치·관리자 계정 변경, Kakao OAuth 자격 증명 발급.
-- **Approaches considered:** (1) UI와 API를 한 호스트에 두고 `/api/` 경로로 나눈다. 한 DNS 이름과 같은 origin 쿠키를 사용하지만 사용자가 UI와 API 주소를 따로 원한다. (2) UI와 API를 별도 HTTPS 호스트로 나눈다. NPM의 두 Proxy Host와 DNS 레코드, 정확한 CORS 및 교차 origin 쿠키 설정이 필요하다. 사용자는 두 호스트 모두 NPM Access List 없이 공개하기로 했다. API는 인터넷에서 직접 접근 가능하며 브라우저 CORS는 비브라우저 클라이언트를 제한하지 않는다. (3) API 포트를 직접 공개한다. NPM TLS를 우회하므로 제외한다.
-- **Selected approach:** 두 번째 방식. UI는 `podobank.oci-dev.duckdns.org`, API는 `podobank-api.oci-dev.duckdns.org`를 사용한다. 두 호스트 모두 NPM Access List 없이 HTTPS로 공개한다. UI 고객·직원 기능은 앱 로그인이 필요하고 API는 정확한 UI origin CORS와 앱 JWT·DB 역할 검증을 사용한다. API는 합성 개발 데이터만 제공한다.
-- **Constraints:** 서비스 컨테이너는 기존 NPM Docker 네트워크에 연결해야 한다. 프록시 네트워크에는 API와 프론트엔드만 연결한다. 실제 DuckDNS 레코드와 인증서는 서버 운영자가 확인해야 한다. NPM 관리자 자격 증명은 저장소나 채팅에 기록하지 않는다.
-- **Builder decisions:** 미리보기 전용 Compose overlay와 비밀 값 템플릿을 제공하고, NPM Access List 없이 공개하는 UI·API Proxy Host 두 개와 각각의 TLS 설정을 운영 문서에 기록한다. 비밀 값은 ignored local env 파일에만 둔다.
+- **Approaches considered:** (1) UI와 API를 한 hostname 아래 `/api` 경로로 나누거나 proxy에서 path rewrite를 한다. 한 주소지만 사용자가 기존 API 경로를 유지하고 Nginx/Worker path rewrite를 사용하지 않기로 했다. (2) UI와 API를 별도 Worker HTTPS hostname으로 두고 기존 Tunnel VPC Service를 각각의 OCI loopback HTTP port에 연결한다. 기존 API 경로를 유지하고 이미 배포된 Worker/Tunnel 설정을 사용할 수 있어 선택한다. (3) OCI의 API나 DB 포트를 인터넷에 직접 공개한다. loopback 보호를 없애므로 제외한다.
+- **Selected approach:** 두 번째 방식. UI는 `https://podobank.i234.workers.dev`, API는 `https://podobank-api.i234.workers.dev`를 사용한다. 이미 배포된 `podobank` 및 `podobank-api` Worker는 기존 Tunnel VPC Services를 통해 각각 `http://127.0.0.1:8081` 및 `http://127.0.0.1:8000`으로 전달한다. Worker와 Nginx에서 URI를 바꾸지 않고 FastAPI의 현재 root API path를 유지한다. API는 정확한 UI Worker origin만 CORS 허용하고 앱 JWT·DB 역할 검증을 사용한다. API는 합성 개발 데이터만 제공한다.
+- **Constraints:** 두 Worker와 각 VPC Service는 이미 배포·연결돼 있으며 이번 저장소 변경에서 Cloudflare/Tunnel 구성을 바꾸지 않는다. 컨테이너 API·frontend host port는 기존 `127.0.0.1` bind를 유지한다. NPM, MariaDB, MongoDB, named volumes, 관측 및 기타 공유 서비스의 설정이나 실행 상태를 바꾸지 않는다. NPM 관리자 자격 증명과 환경 비밀값은 출력·저장소 기록하지 않는다.
+- **Builder decisions:** 기존 미리보기 Compose overlay에서 API Worker URL을 build-time API base로 사용한다. preview env example 및 이미 사용 중인 ignored `.env.npm-preview`에서는 지정한 세 URL 값만 변경한다. Kakao placeholder와 `APP_ENV=development`는 유지한다. 배포 문서는 기존 Cloudflare Worker/VPC 연결과 검증 절차를 설명하며 API/frontend 외 Compose 서비스는 재빌드하지 않는다.
 
-Docker Compose로 MariaDB, FastAPI, Vue와 관측 스택을 실행한다. 기본 Compose 설정은 로컬 개발용이다. 미리보기 전용 overlay는 API와 프론트엔드만 기존 NPM 외부 네트워크에 연결하고, MariaDB 데이터는 기존 영속 볼륨에 보존하며 FastAPI는 MariaDB health check 이후 연결한다. 스키마와 샘플 데이터의 재생성은 개발자가 명령으로 명시했을 때만 수행한다.
+Docker Compose로 MariaDB, FastAPI, Vue와 관측 스택을 실행한다. 기본 Compose 설정은 로컬 개발용이다. 미리보기 전용 overlay는 기존 OCI Compose 프로젝트의 UI/API 설정을 유지하며, Cloudflare Tunnel VPC Services는 기존 host loopback port mapping을 사용한다. 이 변경은 NPM과 기존 외부 network, MariaDB, MongoDB, 관측 서비스 및 named volumes를 수정하거나 중지하지 않는다. API 및 frontend만 재빌드하고, DB 스키마와 샘플 데이터에는 접근하지 않는다.
 
 `FastAPI·상환 CLI → 금융 이벤트 JSONL 파일 → Grafana Alloy → Loki·Prometheus → Grafana`
 
@@ -145,8 +145,8 @@ FastAPI와 `process-repayments` CLI는 전용 JSONL 이벤트 파일에 결과 �
 - **금융 API 이벤트 저장소:** MongoDB 7.0.45, PyMongo (잠금 파일에서 버전 고정, API의 최선 노력 직접 기록)
 - **SQL 접근:** SQLAlchemy Core, 직접 작성한 SQL, ORM 미사용
 - **개발·데모 서비스 실행:** Docker Compose
-- **브라우저 API 연결:** 로컬은 FastAPI 직접 origin, NPM 미리보기는 `https://podobank-api.oci-dev.duckdns.org` base; FastAPI CORS는 UI의 정확한 origin과 필요한 method·header를 명시하고 credential 포함 요청을 허용
-- **HTTPS 미리보기:** `compose.npm-preview.yaml` 외부 네트워크 overlay, UI host `podobank.oci-dev.duckdns.org`와 API host `podobank-api.oci-dev.duckdns.org`, 두 호스트 모두 NPM Access List 없이 공개, 앱 로그인과 API JWT 인증, HTTPS 전용 쿠키
+- **브라우저 API 연결:** 로컬은 FastAPI 직접 origin, Worker 미리보기는 `https://podobank-api.i234.workers.dev` base; FastAPI CORS는 `https://podobank.i234.workers.dev`만 허용하고 필요한 method·header 및 credentials를 지정
+- **HTTPS 미리보기:** `compose.npm-preview.yaml` overlay의 API/frontend build configuration, UI Worker `podobank.i234.workers.dev`와 API Worker `podobank-api.i234.workers.dev`, 기존 Tunnel VPC Service에서 OCI loopback HTTP ports 8081/8000으로 전달, 기존 API paths, Secure·HttpOnly·SameSite=Lax 쿠키
 - **가입·로그인:** 고객 카카오 로그인 및 선택적 비밀번호 로컬 로그인, 직원 로컬 로그인
 - **관측:** Grafana Alloy, Loki, Prometheus, Grafana. Alloy는 금융 이벤트 스트림을 처리해 Prometheus의 `podobank_financial_operations_total` 카운터를 만든다.
 - **금융·프로필 데이터:** 사용자, 휴대전화번호, 나이, 성별, 혼인 상태, 직장 유무, 계정 등급, 계좌, 잔액, 이체, 대출 상품, 대출 신청·승인·상환
@@ -181,11 +181,13 @@ FastAPI와 `process-repayments` CLI는 전용 JSONL 이벤트 파일에 결과 �
 - 최초 카카오 로그인 때 기본 계좌 한 개가 발급되고 재로그인 때 중복 발급되지 않는다.
 - 비밀번호를 설정하지 않은 고객은 로컬 로그인에 실패하고 카카오 로그인만 사용할 수 있다. 고객은 인증된 카카오 세션에서 비밀번호를 설정한 뒤 로컬 로그인할 수 있다.
 - 사전 등록된 은행 직원은 카카오 로그인 없이 로컬 로그인할 수 있고, 로그인 뒤에도 직원 전용 API는 직원 역할만 허용한다.
-- Docker Compose 기본 설정으로 로컬 개발 서비스를 실행할 수 있고, 미리보기 overlay는 API와 프론트엔드만 기존 NPM 네트워크에 추가한다.
-- `https://podobank.oci-dev.duckdns.org`가 NPM 인증 없이 NPM TLS를 거쳐 Vue 앱을 표시하고, `https://podobank-api.oci-dev.duckdns.org/health`가 NPM 인증 없이 FastAPI에 도달한다. 두 호스트 모두 NPM이 HTTP upstream으로 전달한다.
-- 미리보기 빌드가 API 호스트를 사용하고, UI origin의 CORS 사전 요청이 허용되며, UI에서 실행한 API 로그인과 이후 요청에 Secure, HttpOnly, SameSite=Lax JWT 쿠키가 포함된다. 로컬 빌드는 기존 localhost API origin을 계속 사용한다.
-- 미리보기 API·직원·데모 고객 비밀 값은 예시 또는 개발 기본값이 아니며 저장소에 커밋되지 않는다. 두 호스트 모두 NPM 인증 없이 접근할 수 있다. API 호스트는 직접 접근 가능하고 CORS는 비브라우저 요청을 차단하지 않으며, 사용자별 금융 API는 유효한 앱 세션과 DB 역할을 요구한다.
-- NPM 연결을 위한 MariaDB 네트워크 노출은 없다.
+- Docker Compose 기본 설정으로 로컬 개발 서비스를 실행할 수 있고 미리보기 overlay는 기존 OCI Compose 프로젝트의 API/frontend 설정만 보완한다.
+- `https://podobank.i234.workers.dev/`가 Vue 앱을 반환하고 `https://podobank-api.i234.workers.dev/health`가 FastAPI health 응답을 반환한다. 기존 Tunnel VPC Services는 각각 HTTP loopback `127.0.0.1:8081` 및 `127.0.0.1:8000`으로 전달한다.
+- 미리보기 빌드의 API base와 환경 파일의 API/UI/Kakao callback URL이 각 Worker URL과 일치한다. API 경로는 `/health`, `/auth/...` 등 기존 경로를 유지하고 `/api` 접두사나 Worker/Nginx path rewrite가 없다. 로컬 빌드는 기존 localhost API origin을 계속 사용한다.
+- UI Worker origin의 CORS preflight가 정확한 UI origin과 credentials를 허용하며 다른 origin은 허용하지 않는다. UI에서 실행한 API 로그인 및 후속 요청에 Secure, HttpOnly, SameSite=Lax JWT 쿠키가 포함된다.
+- `.env.npm-preview`에서는 API_ORIGIN, FRONTEND_ORIGINS, KAKAO_REDIRECT_URI의 세 URL 값만 바뀌고 모든 다른 값과 파일 mode `0600`이 보존된다. 비밀값은 터미널 출력, diff, log, 저장소에 기록되지 않는다. `.env.npm-preview.example`은 `APP_ENV=development`와 Kakao placeholder를 유지한다.
+- 미리보기 API·직원·데모 고객 비밀 값은 예시 또는 개발 기본값이 아니며 저장소에 커밋되지 않는다. 두 Worker URL은 공개되고 CORS는 비브라우저 요청을 차단하지 않으며, 사용자별 금융 API는 유효한 앱 세션과 DB 역할을 요구한다.
+- API와 DB port는 `127.0.0.1` loopback binding만 사용하고 인터넷에 직접 공개되지 않는다. NPM, MariaDB, MongoDB, named volumes, 관측 서비스 및 다른 공유 서비스의 설정과 실행 상태는 변경되지 않는다. Compose 실행은 API와 frontend만 대상으로 하며 dependency/shared service를 시작·중지·재생성하지 않는다.
 - MariaDB 컨테이너나 FastAPI 컨테이너를 재시작해도 MariaDB 영속 볼륨의 데이터가 유지된다.
 - Vue의 별도 API 호스트 요청에 JWT HttpOnly 쿠키가 포함된다. FastAPI CORS는 UI의 정확한 origin과 필요한 method·header만 허용하고 credentials를 지원하며, 해당 설정에 와일드카드를 쓰지 않는다.
 - 가입 과정에서 입력한 휴대전화번호는 중복될 수 없고 SMS 인증은 하지 않는다. 사전 등록 데모 사용자에게는 가상 번호를 쓴다.
@@ -209,9 +211,9 @@ FastAPI와 `process-repayments` CLI는 전용 JSONL 이벤트 파일에 결과 �
 - 자동상환 CLI의 배치 이벤트도 API 이벤트와 같은 수집 경로를 거쳐 Loki에서 검색된다.
 - Alloy는 이벤트를 Loki로 전송하고 각 이벤트마다 `podobank_financial_operations_total`을 한 번 증가시킨다. Prometheus에서 거래 유형·결과·정적 사유별 카운터를 조회할 수 있고 라벨 값 집합은 유한하다.
 - Grafana 기동 후 설정된 Prometheus·Loki 데이터 소스와 금융 동작 대시보드가 자동으로 표시된다. 대시보드는 금융 동작 성공·실패 추이와 최근 구조화 이벤트를 제공한다.
-- Docker Compose 기본 및 NPM overlay 설정 검증은 예시 env 파일 기반으로 실행할 수 있다. 관측 컨테이너 포트는 호스트에 바인딩하지 않으며 Grafana만 loopback에 공개한다.
+- Docker Compose 기본 및 preview overlay 설정 검증은 예시 env 파일 기반으로 실행할 수 있다. 관측 컨테이너 포트는 호스트에 바인딩하지 않으며 Grafana만 loopback에 공개한다.
 - MongoDB 컨테이너는 health check를 통과하고 전용 named volume을 사용한다. 재시작 또는 컨테이너 재생성 뒤에도 MongoDB 데이터가 남는다.
-- MongoDB에 호스트 포트 매핑이 없고 NPM 외부 네트워크에도 연결되지 않는다.
+- MongoDB에 호스트 포트 매핑이 없고 기존 NPM 외부 네트워크에도 연결되지 않는다.
 - `.env.example`과 로컬 `.env`의 `MONGO_URL=mongodb://mongo:27017`, `MONGO_DB_NAME=podobank_events` 설정이 제공되고, Compose 내부 서비스에서 `mongo` 이름으로 MongoDB에 접속할 수 있다.
 - `docker compose exec mongo mongosh --quiet --eval 'db.adminCommand({ping: 1})'` 명령이 성공해 MongoDB health를 확인할 수 있다.
 - 성공 금융 업무의 이벤트는 API가 MariaDB 트랜잭션을 커밋한 뒤 MongoDB에 직접 기록한다. MongoDB 기록 실패는 금융 거래 성공 결과를 바꾸지 않으며 이벤트가 누락될 수 있다.

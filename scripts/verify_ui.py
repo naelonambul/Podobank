@@ -479,13 +479,13 @@ def verify_preview_compose_config(
     preview_compose.extend(["-f", str(ROOT / "compose.npm-preview.yaml")])
     run(
         [*preview_compose, "config", "--quiet"],
-        label="Validating the merged NPM preview Compose model.",
+        label="Validating the merged preview Compose model.",
         environment=preview_environment,
         secrets=preview_secrets,
     )
     rendered = run(
         [*preview_compose, "config", "--format", "json"],
-        label="Checking NPM preview routing and network isolation.",
+        label="Checking Worker preview origins and network isolation.",
         environment=preview_environment,
         secrets=preview_secrets,
     )
@@ -506,18 +506,18 @@ def verify_preview_compose_config(
         frontend_aliases = frontend_networks["npm-proxy"]["aliases"]
         api_aliases = api_networks["npm-proxy"]["aliases"]
     except (KeyError, TypeError, json.JSONDecodeError) as error:
-        raise VerificationError("Could not inspect the merged NPM preview Compose model.") from error
+        raise VerificationError("Could not inspect the merged preview Compose model.") from error
 
-    expected_api_origin = "https://podobank-api.oci-dev.duckdns.org"
-    expected_ui_origin = "https://podobank.oci-dev.duckdns.org"
+    expected_api_origin = "https://podobank-api.i234.workers.dev"
+    expected_ui_origin = "https://podobank.i234.workers.dev"
     if frontend_api_origin != expected_api_origin:
         raise VerificationError(
-            "The NPM preview frontend must call https://podobank-api.oci-dev.duckdns.org."
+            "The preview frontend must call https://podobank-api.i234.workers.dev."
         )
     if api_origin != expected_api_origin:
-        raise VerificationError("The NPM preview API_ORIGIN must use the API hostname.")
+        raise VerificationError("The preview API_ORIGIN must use the API Worker hostname.")
     if allowed_frontend_origins != expected_ui_origin:
-        raise VerificationError("The NPM preview CORS allowlist must contain only the UI origin.")
+        raise VerificationError("The preview CORS allowlist must contain only the UI Worker origin.")
     if not {"default", "npm-proxy"}.issubset(frontend_networks):
         raise VerificationError("The preview frontend must retain default and join npm-proxy.")
     if not {"default", "npm-proxy"}.issubset(api_networks):
