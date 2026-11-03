@@ -1,0 +1,33 @@
+{
+  "schema": 1,
+  "id": "template-sync-1f6cd95",
+  "kind": "repository",
+  "title": "Sync template through 1f6cd95",
+  "base": {
+    "ref": "main",
+    "commit": "9121ff98559beae75101369110783ff78abaec9d"
+  },
+  "baseline": {},
+  "write_scope": [
+    "scripts/repo.py",
+    "scripts/README.md",
+    "scripts/tests/support.py",
+    "scripts/tests/test_guard.py",
+    "scripts/tests/test_workflow.py",
+    "scripts/tests/run.py",
+    "scripts/tests/test_run.py",
+    "scripts/tests/test_support.py",
+    "checks.json",
+    ".github/workflows/repository.yml"
+  ],
+  "approvals": [
+    {
+      "artifact": "plan.md",
+      "sha256": "sha256:f1e82db830faea722076dcbf3624ed9335594f19164798a7ac83fbc0baabac25",
+      "by": "naelonambul",
+      "at": "2026-11-03T03:34:15Z",
+      "write_scope_sha256": "sha256:22e130753d2e756b0b379d62ca9720304db3003eff6c041e5f51713cb8d1fc84",
+      "note": "Owner in session: \"\uc2b9\uc778\" (approving the Mac template-sync-1f6cd95 plan, commit 5bf1412, sha256 f1e82db8...)"
+    }
+  ]
+}
