@@ -1,0 +1,27 @@
+{
+  "schema": 1,
+  "id": "podobank-manual-readme-link",
+  "kind": "implementation",
+  "title": "Link the user manual from the project README",
+  "base": {
+    "ref": "main",
+    "commit": "9edb5d75e30708b27c5fb36aa5496e44a3c2b4c0"
+  },
+  "baseline": {
+    "intent.md": "sha256:713e23285d0340754f840512430a1c1de8dc67bca3018c9bb320a9725d33d420",
+    "spec.md": "sha256:481dd75bbfda974f74d037ff5c7f6e81fcf74c04d8da026a9aeb8e090faa31ec"
+  },
+  "write_scope": [
+    "README.md"
+  ],
+  "approvals": [
+    {
+      "artifact": "plan.md",
+      "sha256": "sha256:88ca0a552c49b884618b733557b16ee5377698ad2549aa4739bc5e154ab29573",
+      "by": "owner",
+      "at": "2026-11-03T06:23:34Z",
+      "write_scope_sha256": "sha256:be3ae3b6479236a18da3e876a0de9dfe9ae2428896d83c3e804db008861b12d0",
+      "note": "\uc2b9\uc778"
+    }
+  ]
+}
