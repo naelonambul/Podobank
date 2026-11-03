@@ -30,6 +30,15 @@
       "requires": ["python3", "git", "docker"]
     },
     {
+      "id": "podobank-mongodb-events",
+      "group": "mariadb",
+      "argv": ["python3", "scripts/verify_mongodb_events.py", "--smoke"],
+      "cwd": ".",
+      "timeout_seconds": 900,
+      "paths": ["backend/podobank_api/schema.py", "backend/podobank_api/cli.py", "backend/podobank_api/features/financial_events/**", "backend/podobank_api/features/transactions/service.py", "backend/podobank_api/features/loans/service.py", "backend/tests/test_database.py", "backend/tests/test_financial_events.py", "compose.yaml", ".env.example", "pyproject.toml", "uv.lock", "README.md", "scripts/verify_mongodb_events.py", "checks.json"],
+      "requires": ["python3", "git", "docker"]
+    },
+    {
       "id": "podobank-ui-quality",
       "group": "frontend",
       "argv": ["python3", "scripts/verify_ui.py", "--quality"],

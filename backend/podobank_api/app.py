@@ -1,5 +1,6 @@
 import os
-from collections.abc import Callable
+from collections.abc import AsyncIterator, Callable
+from contextlib import asynccontextmanager
 
 import httpx
 from fastapi import FastAPI, Request
@@ -14,12 +15,21 @@ from podobank_api.features.accounts.service import AccountService
 from podobank_api.features.auth.api import router as auth_router
 from podobank_api.features.auth.kakao import KakaoProvider
 from podobank_api.features.auth.service import AuthService
+from podobank_api.features.financial_events.mongodb import close_mongodb_clients
 from podobank_api.features.loans.api import router as loans_router
 from podobank_api.features.loans.service import LoanService
 from podobank_api.features.observability.events import configure_financial_event_logging
 from podobank_api.features.transactions.api import router as transactions_router
 from podobank_api.features.transactions.service import TransactionService
 from podobank_api.settings import Settings
+
+
+@asynccontextmanager
+async def application_lifespan(_application: FastAPI) -> AsyncIterator[None]:
+    try:
+        yield
+    finally:
+        close_mongodb_clients()
 
 
 def create_app(
@@ -33,7 +43,11 @@ def create_app(
     configure_financial_event_logging(os.environ.get("FINANCIAL_EVENTS_PATH"))
     database_engine = engine or create_database_engine(app_settings.database_url)
 
-    application = FastAPI(title="PodoBank API", version="0.1.0")
+    application = FastAPI(
+        title="PodoBank API",
+        version="0.1.0",
+        lifespan=application_lifespan,
+    )
 
     @application.exception_handler(DBAPIError)
     def database_error_handler(_request: Request, _error: DBAPIError) -> JSONResponse:

@@ -8,6 +8,8 @@ from typing import TypeVar
 
 from sqlalchemy.engine import Engine
 
+from podobank_api.features.financial_events.events import build_committed_event
+from podobank_api.features.financial_events.mongodb import write_event_best_effort
 from podobank_api.features.loans import sql
 from podobank_api.features.observability.events import record_financial_operation
 from podobank_api.features.transactions import sql as transaction_sql
@@ -135,6 +137,7 @@ class LoanService:
                     user_id=user_id,
                     product=product,
                 )
+            self._record_committed_event("loan_application")
             with self._engine.connect() as connection:
                 application = sql.find_application(connection, application_id)
             if application is None:
@@ -212,6 +215,7 @@ class LoanService:
                     reviewed_at=reviewed_at,
                     approved_at=reviewed_at,
                 )
+            self._record_committed_event("loan_approval")
             return len(due_dates)
 
         return self._run("loan_approval", perform)
@@ -233,11 +237,13 @@ class LoanService:
                     reviewed_at=reviewed_at,
                     approved_at=None,
                 )
+            self._record_committed_event("loan_rejection")
 
         self._run("loan_rejection", perform)
 
     def process_due_repayments(self, *, as_of_date: date) -> RepaymentRunResult:
         def perform() -> RepaymentRunResult:
+            batch_id = str(uuid.uuid4())
             with self._engine.connect() as connection:
                 candidates = sql.due_repayment_candidates(connection, as_of_date)
 
@@ -251,6 +257,7 @@ class LoanService:
                     application_id=application_id,
                     as_of_date=as_of_date,
                     processed_at=processed_at,
+                    batch_id=batch_id,
                 )
                 if outcome == "paid":
                     paid += 1
@@ -274,7 +281,10 @@ class LoanService:
         application_id: int,
         as_of_date: date,
         processed_at: datetime,
+        batch_id: str,
     ) -> str:
+        event_counts: tuple[int, int, int, int] | None = None
+        outcome = "skipped"
         with self._engine.begin() as connection:
             # All three row types use the shared lock order: loan, repayment, account.
             application = sql.lock_application(connection, application_id)
@@ -313,33 +323,43 @@ class LoanService:
                     processed_at=processed_at,
                     paid_at=None,
                 )
-                return "overdue"
+                event_counts = (1, 0, 1, 0)
+                outcome = "overdue"
+            else:
+                transaction_sql.add_balance(
+                    connection,
+                    account_id=int(account["id"]),
+                    delta=-amount,
+                )
+                transaction_sql.insert_ledger_entry(
+                    connection,
+                    posted_at=processed_at,
+                    transaction_id=str(uuid.uuid4()),
+                    account_id=int(account["id"]),
+                    user_id=int(application["user_id"]),
+                    entry_type="loan_repayment",
+                    amount=-amount,
+                )
+                sql.update_repayment_status(
+                    connection,
+                    repayment_id=repayment_id,
+                    expected_status="scheduled",
+                    new_status="paid",
+                    processed_at=processed_at,
+                    paid_at=processed_at,
+                )
+                if not sql.has_open_repayments(connection, application_id):
+                    sql.mark_application_repaid(connection, application_id)
+                event_counts = (1, 1, 0, 0)
+                outcome = "paid"
 
-            transaction_sql.add_balance(
-                connection,
-                account_id=int(account["id"]),
-                delta=-amount,
+        if event_counts is not None:
+            self._record_committed_event(
+                "repayment_batch",
+                repayment_counts=event_counts,
+                batch_id=batch_id,
             )
-            transaction_sql.insert_ledger_entry(
-                connection,
-                posted_at=processed_at,
-                transaction_id=str(uuid.uuid4()),
-                account_id=int(account["id"]),
-                user_id=int(application["user_id"]),
-                entry_type="loan_repayment",
-                amount=-amount,
-            )
-            sql.update_repayment_status(
-                connection,
-                repayment_id=repayment_id,
-                expected_status="scheduled",
-                new_status="paid",
-                processed_at=processed_at,
-                paid_at=processed_at,
-            )
-            if not sql.has_open_repayments(connection, application_id):
-                sql.mark_application_repaid(connection, application_id)
-            return "paid"
+        return outcome
 
     def repay_overdue(
         self,
@@ -405,15 +425,37 @@ class LoanService:
                 has_open = sql.has_open_repayments(connection, application_id)
                 if not has_open:
                     sql.mark_application_repaid(connection, application_id)
-                return ManualRepaymentResult(
+                result = ManualRepaymentResult(
                     application_id=application_id,
                     status="repaying" if has_open else "repaid",
                     amount=amount,
                     balance=balance - amount,
                     paid_installments=paid_installments,
                 )
+            self._record_committed_event("manual_loan_repayment")
+            return result
 
         return self._run("manual_loan_repayment", perform)
+
+    @staticmethod
+    def _record_committed_event(
+        operation: str,
+        *,
+        repayment_counts: tuple[int, int, int, int] | None = None,
+        batch_id: str | None = None,
+    ) -> None:
+        event = build_committed_event(
+            operation,
+            repayment_counts=repayment_counts,
+            batch_id=batch_id,
+        )
+        try:
+            write_event_best_effort(event)
+        except Exception:
+            logger.warning(
+                "financial_event_mongodb_write_failed operation=%s reason=writer_error",
+                operation,
+            )
 
     @staticmethod
     def _run(operation: str, action: Callable[[], Result]) -> Result:
