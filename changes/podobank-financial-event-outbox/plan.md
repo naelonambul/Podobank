@@ -2,58 +2,59 @@
 
 ## Summary
 
-Add a MariaDB transactional outbox for committed financial events and a separate Compose event-projector that retries delivery to MongoDB. Keep the JSONL → Alloy → Loki/Prometheus service-call observation path unchanged. The API writes only to MariaDB; MongoDB outages create a retry backlog without failing committed financial operations.
+Keep MariaDB as the source for structured financial data. After each successful API financial transaction commits, the API makes one direct, bounded-time best-effort write of its explicit event document to MongoDB. MongoDB failures never roll back or fail committed financial operations. Do not add an outbox, relay, projector, retry, or replay path. Preserve the existing JSONL → Alloy → Loki/Prometheus observation path.
 
 ## Files and components that change
 
 <!-- Must be covered by change.json write_scope. -->
 
-- `backend/podobank_api/schema.py`: create the InnoDB outbox table and indexes through the existing idempotent schema path.
-- `backend/podobank_api/features/financial_outbox/**`: add event-envelope validation, SQLAlchemy Core insert/claim/ack/retry operations, MongoDB upsert, polling, and replay.
-- `backend/podobank_api/features/transactions/service.py` and `backend/podobank_api/features/loans/service.py`: insert success events through the active SQL connection before each state-changing transaction commits. For scheduled repayments, attach one outbox event to each candidate transaction that changes state; keep the existing aggregate JSONL event.
-- `backend/podobank_api/cli.py`: add a long-running `project-events` command, a one-pass mode for verification, and an explicit replay mode for rebuilding the MongoDB projection.
-- `compose.yaml` and `.env.example`: run one internal event-projector service after MariaDB and MongoDB are healthy; pass Mongo settings to the projector, not the API; expose no new host ports.
-- `pyproject.toml` and `uv.lock`: add and lock PyMongo for the projector.
-- `backend/tests/**`: cover transaction atomicity, event privacy and shape, repayment candidate behavior, retry/idempotency, and replay.
-- `scripts/verify_event_projection.py` and `checks.json`: add an isolated Docker smoke check for MongoDB delivery and recovery.
-- `README.md`: document the projector and the explicit replay command.
+- `backend/podobank_api/schema.py` and `backend/tests/test_database.py`: remove the unmerged financial outbox table and its schema expectations.
+- `backend/podobank_api/features/financial_events/**`: create privacy-safe event envelopes and write them directly to MongoDB with PyMongo; bound connection/operation time and contain failures as best-effort delivery errors.
+- `backend/podobank_api/features/transactions/service.py` and `backend/podobank_api/features/loans/service.py`: attempt MongoDB event writes only after successful MariaDB commits. Failed service attempts remain JSONL-only. For repayment batches, write one event after each candidate transaction that changes state and preserve the existing aggregate JSONL event.
+- `backend/podobank_api/cli.py`: remove the unmerged `project-events` CLI command; keep existing commands unchanged.
+- `compose.yaml` and `.env.example`: keep MongoDB internal with its persistent volume; give `MONGO_URL` and `MONGO_DB_NAME` to the API. Do not make API startup or health depend on MongoDB.
+- `pyproject.toml` and `uv.lock`: add and lock PyMongo for the API event writer.
+- `backend/tests/**`: cover event shape/privacy, post-commit ordering, repayment candidate behavior, and MongoDB write failure isolation.
+- `scripts/verify_mongodb_events.py` and `checks.json`: add an isolated Docker smoke check for direct API-to-MongoDB event writes and best-effort behavior during MongoDB outage.
+- `README.md`: document the direct write path and that events can be lost; do not document replay or recovery commands.
 
 ## Order of work
 
-1. Add the MariaDB outbox schema and database tests first. Change `backend/podobank_api/schema.py` and add focused cases under `backend/tests/test_financial_outbox.py`; verify schema creation is repeatable and all outbox fields use InnoDB. Proof: `python3 scripts/verify_backend.py --suite mariadb`.
-2. Implement the `features/financial_outbox` package and its tests. Persist a stable UUID and privacy-safe event envelope, claim pending rows with a recoverable lease, upsert MongoDB documents by `_id` using acknowledged journaled writes, and mark rows projected only after MongoDB accepts them. Apply retry backoff without discarding rows. Replay must upsert retained rows without changing MariaDB business data. Proof: `python3 scripts/verify_backend.py --suite mariadb`.
-3. Instrument transaction and loan services. Use the same SQLAlchemy Core connection as each successful business transaction so an outbox insert failure rolls the whole transaction back. Keep failure attempts on the existing JSONL path. Give each committed repayment candidate its own event and preserve one aggregate JSONL event per batch. Extend transaction and loan tests, including a forced outbox insert error and a partially completed repayment batch. Proof: `python3 scripts/verify_backend.py --suite mariadb`.
-4. Add the CLI and Compose integration. Update `backend/podobank_api/cli.py`, `compose.yaml`, `.env.example`, `pyproject.toml`, `uv.lock`, and `README.md`. Keep the API dependent only on MariaDB; start the separate projector after both databases are healthy. Provide one-pass and replay controls for operators. Proof: `docker compose --env-file .env.example config --quiet`.
-5. Register the projection smoke check. Add `scripts/verify_event_projection.py` and its `checks.json` entry; the isolated check must prove MongoDB downtime leaves outbox rows pending, recovery delivers them, a write-before-ack crash does not create duplicates, and replay restores a cleared projection. Proof: `python3 scripts/verify_event_projection.py --smoke`.
-6. Review the complete change against the approved spec and `REVIEW.md`, then run the full repository verification. Proof: `python3 scripts/repo.py verify --change podobank-financial-event-outbox --full`.
+1. Remove the unmerged outbox table and its database assertions from `backend/podobank_api/schema.py` and `backend/tests/test_database.py`. Remove outbox-specific tests that no longer apply. Proof: `python3 scripts/verify_backend.py --suite mariadb`.
+2. Add `features/financial_events` with an allowlisted event envelope and a MongoDB writer that uses a finite timeout, logs a static failure code, and does not propagate Mongo errors to the business operation. Unit tests use a fake collection/client to verify safe fields and failure handling. Proof: `python3 scripts/verify_backend.py --suite mariadb`.
+3. Instrument transaction and loan services. Capture the event for a successful state change, exit the MariaDB transaction successfully, then make one MongoDB write attempt. Do not write MongoDB events for failed service attempts or skipped repayment candidates. Verify a MongoDB error leaves the committed financial result successful and unchanged. Proof: `python3 scripts/verify_backend.py --suite mariadb`.
+4. Remove the unmerged `project-events` CLI parser, keep the API's existing Mongo environment settings, add PyMongo to `pyproject.toml` and `uv.lock`, and document best-effort semantics in `README.md`. Proof: `docker compose --env-file .env.example config --quiet`.
+5. Add `scripts/verify_mongodb_events.py` and register it in `checks.json`. The isolated smoke check must prove an API transaction writes a safe MongoDB event, MongoDB downtime does not fail the financial transaction, and no retry or replay later restores the missing event. Proof: `python3 scripts/verify_mongodb_events.py --smoke`.
+6. Review the complete change against the approved spec and `REVIEW.md`, then run full repository verification. Proof: `python3 scripts/repo.py verify --change podobank-financial-event-outbox --full`.
 
 ## Tests and proof
 
-The backend suite runs against the registered MariaDB target. Focused unit and integration cases verify:
+The backend suite runs against the registered MariaDB target. Focused integration and unit cases verify:
 
-- a successful operation commits its state and exactly one transaction-level outbox row together;
-- a forced outbox insert failure rolls back the corresponding balance, ledger, or loan-state change;
-- failed service attempts create no outbox row and still use the existing JSONL event path;
-- repayment batches create one outbox row for each committed paid/overdue candidate, none for skipped candidates, and one unchanged aggregate JSONL event;
-- MongoDB transient failures leave rows recoverable, retries use the same event UUID, and a MongoDB write followed by a lost MariaDB acknowledgement does not duplicate documents;
-- replay repopulates MongoDB from retained outbox rows and does not change financial state;
-- MongoDB documents contain only the approved event fields and technical event UUID metadata.
+- a successful transaction commits financial state before the event writer is called;
+- a failed or rolled-back financial operation does not create a MongoDB event;
+- a MongoDB connection/write error does not fail the already-committed operation or roll back its database state;
+- events contain only approved static operation, outcome, reason, UTC timestamp, UUID, schema version, and repayment batch counts/ID;
+- repayment batches attempt one event for each committed state-changing candidate, no event for skipped candidates, and keep one aggregate JSONL event;
+- the API can start and serve financial operations while MongoDB is unavailable, and missed events remain absent after MongoDB recovers;
+- the API and MongoDB remain internal Compose services without new public ports; no projector service or MariaDB outbox table is present.
 
-The isolated projection smoke uses disposable Compose resources and example credentials. The final `repo.py verify --full` run must be complete, with every registered check passed and no `not-run`, `failed`, or `blocked` result. No test evidence is claimed until that command actually runs.
+The isolated smoke uses disposable Compose resources and example credentials. The final `repo.py verify --full` run must be complete, with every registered check passed and no `not-run`, `failed`, or `blocked` result. No test evidence is claimed until that command actually runs.
 
 ## Risks and mitigations
 
-- The API now depends on one extra MariaDB write per successful financial transaction. This is intentional: if the outbox cannot commit, the associated financial state must roll back.
-- MongoDB downtime can grow the MariaDB backlog. Keep rows indefinitely, retry without dropping events, and document replay and volume monitoring.
-- The existing development MongoDB is a single Compose service. This change provides durable retry and projection rebuild from MariaDB, not host-level disaster recovery if the MariaDB outbox volume is also lost.
-- Repayment batches commit candidates independently. Write an outbox row inside each candidate transaction so a later batch failure cannot erase evidence for earlier committed candidates.
+- A process failure after MariaDB commit but before the MongoDB write can lose the event. This is an accepted limitation; no durable relay or reconciliation is included.
+- MongoDB outages may cause some or all event writes to be skipped. Bound each write attempt and contain its error so financial API availability does not depend on MongoDB.
+- A synchronous post-commit write adds bounded latency to a successful API call. Use a short explicit timeout and record only a static local error code on failure.
+- A client retry after an ambiguous response can produce another financial operation and a distinct event. API idempotency is outside this change.
+- MongoDB volume loss cannot be recovered from MariaDB. The database contains no event backup or replay source.
 
 ## Rollback or recovery
 
-- Keep the new outbox table and all rows during application rollback; the prior application version ignores the additive table. Do not automatically drop the table or truncate event rows.
-- If MongoDB or the projector is unavailable, leave the API and MariaDB running; restore the service and let retries resume. If the MongoDB data volume must be recreated, run the explicit replay mode against the retained outbox before treating the projection as rebuilt.
-- Reverting to the prior application stops new outbox events, so rollback is temporary recovery only. Restore the approved implementation after diagnosis; do not delete committed outbox history.
+- The prior application ignores MongoDB event documents, so reverting the application stops new event writes without changing financial data. Existing MongoDB event documents can remain in the MongoDB volume.
+- MongoDB may be unavailable while API and MariaDB continue serving financial operations. Restore MongoDB for new event attempts; events missed during the outage are not recovered.
+- No schema migration or event replay is required to roll back because this change adds no MariaDB table.
 
 ## Open questions
 
-None. The approved spec fixes the guaranteed scope to committed successful state changes; failed service attempts remain best-effort JSONL observations.
+None. The owner explicitly removed the event-loss prevention requirement. Successful committed events are attempted once after commit; delivery is best-effort, and failed service attempts remain JSONL-only.

@@ -2,7 +2,7 @@
   "schema": 1,
   "id": "podobank-financial-event-outbox",
   "kind": "architecture",
-  "title": "Persist committed financial events through a MariaDB outbox and MongoDB projector",
+  "title": "Write committed API financial events directly to MongoDB on a best-effort basis",
   "base": {
     "ref": "main",
     "commit": "a774c58e2ffb5ac00e505943a1142f0af0869b9f"
@@ -19,18 +19,11 @@
     ".env.example",
     "pyproject.toml",
     "uv.lock",
-    "scripts/verify_event_projection.py",
+    "scripts/verify_mongodb_events.py",
     "checks.json",
     "README.md"
   ],
   "approvals": [
-    {
-      "artifact": "spec.md",
-      "sha256": "sha256:28e6004fb2be9090ab780b90d1c414bc545299f3293f25aa55d89fb66fe77a32",
-      "by": "ckh",
-      "at": "2026-11-03T07:59:33Z",
-      "note": "\ucee4\ubc0b \uc774\ubca4\ud2b8 \uc544\uc6c3\ubc15\uc2a4 \uba85\uc138 \uc2b9\uc778"
-    },
     {
       "artifact": "plan.md",
       "sha256": "sha256:7a2c857aa483f986eaf96fb2a1aa127f8f8d4feabc50a04183c4433c1de30974",
@@ -38,6 +31,13 @@
       "at": "2026-11-03T08:02:33Z",
       "write_scope_sha256": "sha256:b84a4423a8cfbc31713e5ee9fb61b752629a90787b91de446eb633cffe965b35",
       "note": "\ucee4\ubc0b \uc774\ubca4\ud2b8 \uc544\uc6c3\ubc15\uc2a4 \uad6c\ud604 \uacc4\ud68d \uc2b9\uc778"
+    },
+    {
+      "artifact": "spec.md",
+      "sha256": "sha256:a593b015cd633c4522af7a3183febb72de800432af504be23a77a70216821964",
+      "by": "ckh",
+      "at": "2026-11-03T12:00:04Z",
+      "note": "\ucd5c\uc120 \ub178\ub825 \uc9c1\uc811 \uc774\ubca4\ud2b8 \uae30\ub85d \ubc29\ud5a5 \uc2b9\uc778"
     }
   ]
 }
