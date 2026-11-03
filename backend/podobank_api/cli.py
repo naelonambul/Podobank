@@ -129,7 +129,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         if arguments.command == "process-repayments":
             configure_financial_event_logging(
                 os.environ.get("FINANCIAL_EVENTS_PATH"),
-                wait_on_exit=False,
+                wait_on_exit=True,
             )
             engine = create_database_engine(settings.database_url)
             try:

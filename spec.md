@@ -88,7 +88,7 @@ Docker Compose로 MariaDB, FastAPI, Vue와 관측 스택을 실행한다. 기본
 
 `FastAPI·상환 CLI → 금융 이벤트 JSONL 파일 → Grafana Alloy → Loki·Prometheus → Grafana`
 
-FastAPI와 `process-repayments` CLI는 전용 JSONL 이벤트 파일에 결과 이벤트를 쓴다. 파일은 API 컨테이너만 쓰고 Alloy는 읽기 전용 named volume으로 tail한다. Alloy는 이벤트 필드를 파싱해 Loki에 전달하고 같은 이벤트로부터 Prometheus 카운터를 만든다. Prometheus는 Alloy의 내부 메트릭 엔드포인트를 Compose 내부 네트워크에서 스크랩한다. 금융 작업은 이벤트 기록 완료를 기다리거나 관측 서비스에 동기 요청하지 않는다.
+FastAPI와 `process-repayments` CLI는 전용 JSONL 이벤트 파일에 결과 이벤트를 쓴다. 파일은 API 컨테이너만 쓰고 Alloy는 읽기 전용 named volume으로 tail한다. Alloy는 이벤트 필드를 파싱해 Loki에 전달하고 같은 이벤트로부터 Prometheus 카운터를 만든다. Prometheus는 Alloy의 내부 메트릭 엔드포인트를 Compose 내부 네트워크에서 스크랩한다. 금융 서비스 작업은 이벤트 수집기나 원격 관측 서비스에 동기 요청하지 않는다. 단발성 `process-repayments` CLI는 금융 처리를 마친 뒤 종료할 때 로컬 JSONL 기록 큐를 drain해 파일에 flush한 다음 종료한다. 이 종료 처리는 DB 트랜잭션과 금융 서비스 작업을 지연시키지 않는다.
 
 - MariaDB에 사용자, 계정 등급, 기본 계좌, 잔액, 이체, 대출 상품, 대출 상태와 회차별 상환·연체 상태를 저장한다. SQLAlchemy Core의 Engine·Connection·트랜잭션 기능으로 직접 작성한 SQL을 실행하며 ORM을 사용하지 않는다.
 - 잔액과 원장을 함께 변경하는 한 DB 트랜잭션에서 쓰는 모든 테이블은 InnoDB를 사용한다. 원장 항목은 InnoDB 테이블에 저장하고, 변경할 수 없는 UTC `DATETIME(6)` 확정 시각 `posted_at`을 기준으로 `RANGE COLUMNS` 날짜 파티션을 사용한다. 파티션 간격은 월별이다. 파티션 범위 밖의 거래 기록도 거부되지 않도록 미래 범위를 처리하며, 보존 기간이 별도로 승인되기 전에는 파티션을 자동 삭제하지 않는다.

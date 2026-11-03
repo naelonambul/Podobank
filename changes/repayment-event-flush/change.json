@@ -1,0 +1,36 @@
+{
+  "schema": 1,
+  "id": "repayment-event-flush",
+  "kind": "incident",
+  "title": "Flush repayment batch observability events before CLI exit",
+  "base": {
+    "ref": "main",
+    "commit": "d760c68e9401622c8c56e3a9daac446f902f5ab2"
+  },
+  "baseline": {
+    "intent.md": "sha256:713e23285d0340754f840512430a1c1de8dc67bca3018c9bb320a9725d33d420",
+    "spec.md": "sha256:27d81aa2ad1ad873c1ba53e31d3481580b0cf9ea3daf633e5cfa503f0275b614"
+  },
+  "write_scope": [
+    "backend/podobank_api/cli.py",
+    "backend/tests/test_observability.py",
+    "spec.md"
+  ],
+  "approvals": [
+    {
+      "artifact": "spec.md",
+      "sha256": "sha256:481dd75bbfda974f74d037ff5c7f6e81fcf74c04d8da026a9aeb8e090faa31ec",
+      "by": "ckh",
+      "at": "2026-11-03T01:32:36Z",
+      "note": "\uc2b9\uc778"
+    },
+    {
+      "artifact": "plan.md",
+      "sha256": "sha256:c68253bbf664cf9b7e94d2785df3bd8a6b2a444d5a21e12d6365ec3c6bf5626c",
+      "by": "ckh",
+      "at": "2026-11-03T01:34:20Z",
+      "write_scope_sha256": "sha256:7d75d2e38a2bef3e30350d235ac9bdfbc33c82803862ca5d618ce1cee072d482",
+      "note": "\uc2b9\uc778"
+    }
+  ]
+}
