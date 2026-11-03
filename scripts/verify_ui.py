@@ -217,9 +217,9 @@ def free_port(used: set[int]) -> int:
     raise VerificationError("Could not allocate distinct temporary loopback ports.")
 
 
-def example_values() -> dict[str, str]:
+def example_values(path: Path = ROOT / ".env.example") -> dict[str, str]:
     values: dict[str, str] = {}
-    for line in (ROOT / ".env.example").read_text(encoding="utf-8").splitlines():
+    for line in path.read_text(encoding="utf-8").splitlines():
         stripped = line.strip()
         if stripped and not stripped.startswith("#") and "=" in stripped:
             name, value = stripped.split("=", maxsplit=1)
@@ -453,6 +453,84 @@ def verify_compose_config(
     nginx_config = (FRONTEND / "nginx.conf").read_text(encoding="utf-8")
     if "proxy_pass" in nginx_config or "/api/" in nginx_config:
         raise VerificationError("Nginx must serve the frontend without proxying API requests.")
+
+    verify_preview_compose_config(compose, secrets)
+
+
+def verify_preview_compose_config(
+    base_compose: list[str], secrets: list[str]
+) -> None:
+    preview_env_file = ROOT / ".env.npm-preview.example"
+    database_env_file = ROOT / ".env.npm-preview.db.example"
+    preview_values = example_values(preview_env_file)
+    database_values = example_values(database_env_file)
+    preview_environment = compose_environment(preview_env_file, preview_values)
+    preview_environment["COMPOSE_ENV_FILE"] = str(database_env_file)
+    preview_secrets = [
+        *secrets,
+        preview_values.get("MARIADB_PASSWORD", ""),
+        preview_values.get("JWT_SECRET", ""),
+        preview_values.get("BANK_EMPLOYEE_PASSWORD", ""),
+        preview_values.get("DEMO_CUSTOMER_PASSWORD", ""),
+        database_values.get("MARIADB_ROOT_PASSWORD", ""),
+    ]
+    preview_compose = [*base_compose]
+    preview_compose[preview_compose.index("--env-file") + 1] = str(preview_env_file)
+    preview_compose.extend(["-f", str(ROOT / "compose.npm-preview.yaml")])
+    run(
+        [*preview_compose, "config", "--quiet"],
+        label="Validating the merged NPM preview Compose model.",
+        environment=preview_environment,
+        secrets=preview_secrets,
+    )
+    rendered = run(
+        [*preview_compose, "config", "--format", "json"],
+        label="Checking NPM preview routing and network isolation.",
+        environment=preview_environment,
+        secrets=preview_secrets,
+    )
+    try:
+        model = json.loads(rendered)
+        services = model["services"]
+        frontend = services["frontend"]
+        api = services["api"]
+        database = services["db"]
+        frontend_api_origin = frontend["build"]["args"]["VITE_API_ORIGIN"]
+        api_environment = api["environment"]
+        api_origin = api_environment["API_ORIGIN"]
+        allowed_frontend_origins = api_environment["FRONTEND_ORIGINS"]
+        frontend_networks = frontend["networks"]
+        api_networks = api["networks"]
+        database_networks = database.get("networks", {})
+        proxy_network = model["networks"]["npm-proxy"]
+        frontend_aliases = frontend_networks["npm-proxy"]["aliases"]
+        api_aliases = api_networks["npm-proxy"]["aliases"]
+    except (KeyError, TypeError, json.JSONDecodeError) as error:
+        raise VerificationError("Could not inspect the merged NPM preview Compose model.") from error
+
+    expected_api_origin = "https://podobank-api.oci-dev.duckdns.org"
+    expected_ui_origin = "https://podobank.oci-dev.duckdns.org"
+    if frontend_api_origin != expected_api_origin:
+        raise VerificationError(
+            "The NPM preview frontend must call https://podobank-api.oci-dev.duckdns.org."
+        )
+    if api_origin != expected_api_origin:
+        raise VerificationError("The NPM preview API_ORIGIN must use the API hostname.")
+    if allowed_frontend_origins != expected_ui_origin:
+        raise VerificationError("The NPM preview CORS allowlist must contain only the UI origin.")
+    if not {"default", "npm-proxy"}.issubset(frontend_networks):
+        raise VerificationError("The preview frontend must retain default and join npm-proxy.")
+    if not {"default", "npm-proxy"}.issubset(api_networks):
+        raise VerificationError("The preview API must retain default and join npm-proxy.")
+    if "npm-proxy" in database_networks:
+        raise VerificationError("MariaDB must not join the NPM proxy network.")
+    expected_network = preview_values.get("NPM_DOCKER_NETWORK", "nginx-proxy-manager")
+    if proxy_network.get("name") != expected_network or not proxy_network.get("external"):
+        raise VerificationError("The NPM preview must use the existing external proxy network.")
+    if "podobank-frontend" not in frontend_aliases:
+        raise VerificationError("The preview frontend must expose the podobank-frontend alias.")
+    if "podobank-api" not in api_aliases:
+        raise VerificationError("The preview API must expose the podobank-api alias.")
 
 
 def host_url(

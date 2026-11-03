@@ -16,6 +16,7 @@ from podobank_api.database import (
     validate_demo_seed_target,
     validate_reset_target,
 )
+from podobank_api.demo_credentials import rotate_demo_credentials
 from podobank_api.demo_seed import DemoSeedSummary, seed_demo_data
 from podobank_api.features.loans.service import LoanService
 from podobank_api.features.observability.events import configure_financial_event_logging
@@ -30,6 +31,10 @@ def build_parser() -> argparse.ArgumentParser:
     commands.add_parser(
         "seed-demo-data",
         help="insert the large local development sample dataset",
+    )
+    commands.add_parser(
+        "set-demo-credentials",
+        help="set non-default passwords for the local demo employee and customer",
     )
 
     reset_parser = commands.add_parser(
@@ -138,6 +143,27 @@ def main(argv: Sequence[str] | None = None) -> int:
                 f"processed={result.processed} paid={result.paid} "
                 f"overdue={result.overdue} skipped={result.skipped}"
             )
+            return 0
+        if arguments.command == "set-demo-credentials":
+            validate_demo_seed_target(settings.app_env, settings.database_url)
+            settings.validate_employee_seed()
+            settings.validate_demo_customer_seed()
+            if settings.bank_employee_password == "local-demo-employee-password":
+                raise ValueError("BANK_EMPLOYEE_PASSWORD must not use the local default")
+            if settings.demo_customer_password == "local-demo-customer-password":
+                raise ValueError("DEMO_CUSTOMER_PASSWORD must not use the local default")
+            engine = create_database_engine(settings.database_url)
+            try:
+                with engine.begin() as connection:
+                    rotate_demo_credentials(
+                        connection,
+                        employee_phone=settings.bank_employee_phone,
+                        employee_password=settings.bank_employee_password,
+                        demo_customer_password=settings.demo_customer_password,
+                    )
+            finally:
+                engine.dispose()
+            print("Demo employee and customer credentials updated.")
             return 0
         if arguments.command == "seed-demo-data":
             validate_demo_seed_target(settings.app_env, settings.database_url)

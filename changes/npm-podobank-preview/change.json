@@ -1,0 +1,41 @@
+{
+  "schema": 1,
+  "id": "npm-podobank-preview",
+  "kind": "behavior",
+  "title": "Serve the demo UI through Nginx Proxy Manager over HTTPS",
+  "base": {
+    "ref": "main",
+    "commit": "d49a3d6ec01f718c8bbaede368c2b4176b541586"
+  },
+  "baseline": {
+    "intent.md": "sha256:713e23285d0340754f840512430a1c1de8dc67bca3018c9bb320a9725d33d420",
+    "spec.md": "sha256:14bc72563206ea2fa08871e9e88b41f9b61550d567f95b6c4483e8abdd912b6e"
+  },
+  "write_scope": [
+    "compose.npm-preview.yaml",
+    ".env.npm-preview.example",
+    ".env.npm-preview.db.example",
+    "docs/deployment/npm-preview.md",
+    "checks.json",
+    "scripts/verify_ui.py",
+    "backend/podobank_api/cli.py",
+    "backend/podobank_api/demo_credentials.py",
+    "backend/tests/test_database.py",
+    "spec.md"
+  ],
+  "approvals": [
+    {
+      "artifact": "spec.md",
+      "sha256": "sha256:27d81aa2ad1ad873c1ba53e31d3481580b0cf9ea3daf633e5cfa503f0275b614",
+      "by": "ckh",
+      "at": "2026-11-03T00:40:03Z"
+    },
+    {
+      "artifact": "plan.md",
+      "sha256": "sha256:1d316247ebab1da3223416ca3c8f1f7b30e28322af62c5a67f7bea2203a43105",
+      "by": "ckh",
+      "at": "2026-11-03T00:40:03Z",
+      "write_scope_sha256": "sha256:9145a3dd3f839ac943bcf757f75465ea680d8ef0b1223bbbe5ea81a942032ce1"
+    }
+  ]
+}
