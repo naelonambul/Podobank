@@ -26,18 +26,16 @@
   "approvals": [
     {
       "artifact": "spec.md",
-      "sha256": "sha256:bbfd06f32d4d71314386b74976330eca7fce1b2982c5f916381f95652b6489a6",
+      "sha256": "sha256:27d81aa2ad1ad873c1ba53e31d3481580b0cf9ea3daf633e5cfa503f0275b614",
       "by": "ckh",
-      "at": "2026-11-02T08:13:48Z",
-      "note": "\uc0ac\uc6a9\uc790 \uc2b9\uc778: digest sha256:bbfd06f32d4d71314386b74976330eca7fce1b2982c5f916381f95652b6489a6 \uc124\uacc4 \uc2b9\uc778"
+      "at": "2026-11-03T00:40:03Z"
     },
     {
       "artifact": "plan.md",
-      "sha256": "sha256:5ee06fd9d9f373034f5970acd7dc40ffb30fc1cbf3786ff0d642986394d930f8",
+      "sha256": "sha256:1d316247ebab1da3223416ca3c8f1f7b30e28322af62c5a67f7bea2203a43105",
       "by": "ckh",
-      "at": "2026-11-02T08:38:08Z",
-      "write_scope_sha256": "sha256:9145a3dd3f839ac943bcf757f75465ea680d8ef0b1223bbbe5ea81a942032ce1",
-      "note": "\uc0ac\uc6a9\uc790 \uc2b9\uc778: plan digest sha256:5ee06fd9d9f373034f5970acd7dc40ffb30fc1cbf3786ff0d642986394d930f8; \uc2b9\uc778 \u00b7 \uc9c1\uc811 \uad6c\ud604"
+      "at": "2026-11-03T00:40:03Z",
+      "write_scope_sha256": "sha256:9145a3dd3f839ac943bcf757f75465ea680d8ef0b1223bbbe5ea81a942032ce1"
     }
   ]
 }

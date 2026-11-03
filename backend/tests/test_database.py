@@ -19,7 +19,7 @@ from podobank_api.database import (
     validate_reset_target,
 )
 from podobank_api.demo_seed import DemoSeedSummary
-from podobank_api.features.auth.passwords import verify_password
+from podobank_api.features.auth.passwords import hash_password, verify_password
 from podobank_api.seed import DEMO_ACCOUNT_NUMBER, DEMO_CUSTOMER_PHONE, LOAN_PRODUCTS
 
 TEST_EMPLOYEE_PHONE = "01000000009"
@@ -371,6 +371,240 @@ class MariaDBSetupTests(unittest.TestCase):
 
         self.assertEqual(exit_code, 2)
         self.assertIn("APP_ENV=development", errors.getvalue())
+
+    def test_set_demo_credentials_rejects_unsafe_targets_and_passwords_before_connecting(
+        self,
+    ) -> None:
+        parser_choices = cli_module.build_parser()._subparsers._group_actions[0].choices
+        self.assertIn("set-demo-credentials", parser_choices)
+
+        valid_passwords = {
+            "BANK_EMPLOYEE_PASSWORD": "preview-staff-password",
+            "DEMO_CUSTOMER_PASSWORD": "preview-customer-password",
+        }
+        invalid_environments = (
+            {
+                **valid_passwords,
+                "APP_ENV": "test",
+                "DATABASE_URL": self.database_url,
+            },
+            {
+                **valid_passwords,
+                "APP_ENV": "production",
+                "DATABASE_URL": "mysql+pymysql://user:password@127.0.0.1:3306/podobank_dev",
+            },
+            {
+                **valid_passwords,
+                "APP_ENV": "development",
+                "DATABASE_URL": "mysql+pymysql://user:password@remote.example.com:3306/podobank_dev",
+            },
+            {
+                **valid_passwords,
+                "APP_ENV": "development",
+                "DATABASE_URL": "mysql+pymysql://user:password@127.0.0.1:3306/podobank_test",
+            },
+            {
+                **valid_passwords,
+                "APP_ENV": "development",
+                "DATABASE_URL": "mysql+pymysql://user:password@127.0.0.1:3306/podobank_dev",
+                "BANK_EMPLOYEE_PASSWORD": "local-demo-employee-password",
+            },
+            {
+                **valid_passwords,
+                "APP_ENV": "development",
+                "DATABASE_URL": "mysql+pymysql://user:password@127.0.0.1:3306/podobank_dev",
+                "DEMO_CUSTOMER_PASSWORD": "local-demo-customer-password",
+            },
+            {
+                **valid_passwords,
+                "APP_ENV": "development",
+                "DATABASE_URL": "mysql+pymysql://user:password@127.0.0.1:3306/podobank_dev",
+                "BANK_EMPLOYEE_PASSWORD": "short",
+            },
+            {
+                **valid_passwords,
+                "APP_ENV": "development",
+                "DATABASE_URL": "mysql+pymysql://user:password@127.0.0.1:3306/podobank_dev",
+                "DEMO_CUSTOMER_PASSWORD": "short",
+            },
+        )
+        for environment in invalid_environments:
+            errors = StringIO()
+            with (
+                self.subTest(environment=environment),
+                patch.dict(os.environ, environment),
+                patch("podobank_api.cli.create_database_engine") as engine_factory,
+                redirect_stderr(errors),
+            ):
+                exit_code = cli_main(["set-demo-credentials"])
+
+            self.assertEqual(exit_code, 2)
+            engine_factory.assert_not_called()
+
+    def test_set_demo_credentials_changes_only_the_two_allowlisted_hashes(self) -> None:
+        employee_password = "preview-staff-password"
+        customer_password = "preview-customer-password"
+        unrelated_phone = "01000000088"
+        unrelated_password = "unrelated-customer-password"
+        with self.engine.begin() as connection:
+            connection.execute(
+                text(
+                    "INSERT INTO users (name, phone_number, password_hash, age, gender, "
+                    "marital_status, is_employed, role) VALUES "
+                    "('무관 고객', :phone, :password_hash, 35, 'female', 'single', 1, 'customer')"
+                ),
+                {
+                    "phone": unrelated_phone,
+                    "password_hash": hash_password(unrelated_password),
+                },
+            )
+            unrelated_user_id = connection.execute(
+                text("SELECT id FROM users WHERE phone_number = :phone"),
+                {"phone": unrelated_phone},
+            ).scalar_one()
+            connection.execute(
+                text(
+                    "INSERT INTO accounts (owner_user_id, account_number, balance) "
+                    "VALUES (:user_id, '199999999988', 2300)"
+                ),
+                {"user_id": unrelated_user_id},
+            )
+            connection.execute(
+                text("UPDATE accounts SET balance = 1200 WHERE account_number = :account_number"),
+                {"account_number": DEMO_ACCOUNT_NUMBER},
+            )
+
+        before_users = self._credential_user_snapshot()
+        before_accounts = self._account_snapshot()
+        environment = self._demo_credential_environment(
+            employee_password=employee_password,
+            customer_password=customer_password,
+        )
+        output = StringIO()
+        errors = StringIO()
+        with (
+            patch.dict(os.environ, environment),
+            patch("podobank_api.cli.validate_demo_seed_target"),
+            patch("podobank_api.cli.create_database_engine", return_value=self.engine),
+            redirect_stdout(output),
+            redirect_stderr(errors),
+        ):
+            exit_code = cli_main(["set-demo-credentials"])
+
+        self.assertEqual(exit_code, 0, errors.getvalue())
+        after_users = self._credential_user_snapshot()
+        self.assertEqual(set(before_users), set(after_users))
+        for phone, before in before_users.items():
+            after = after_users[phone]
+            if phone in {TEST_EMPLOYEE_PHONE, DEMO_CUSTOMER_PHONE}:
+                self.assertNotEqual(after[1], before[1])
+            else:
+                self.assertEqual(after, before)
+        self.assertEqual(self._account_snapshot(), before_accounts)
+        self.assertTrue(verify_password(after_users[TEST_EMPLOYEE_PHONE][1], employee_password))
+        self.assertTrue(verify_password(after_users[DEMO_CUSTOMER_PHONE][1], customer_password))
+        self.assertTrue(verify_password(after_users[unrelated_phone][1], unrelated_password))
+        self.assertNotIn(employee_password, output.getvalue())
+        self.assertNotIn(customer_password, output.getvalue())
+
+    def test_set_demo_credentials_leaves_database_unchanged_if_an_allowlisted_user_is_invalid(
+        self,
+    ) -> None:
+        invalid_records = (
+            "missing employee",
+            "missing demo customer",
+            "employee has customer role",
+            "demo customer has employee role",
+        )
+        for invalid_record in invalid_records:
+            with self.subTest(invalid_record=invalid_record):
+                reset_database(
+                    self.engine,
+                    app_env="test",
+                    employee_phone=TEST_EMPLOYEE_PHONE,
+                    employee_password=TEST_EMPLOYEE_PASSWORD,
+                )
+                self._invalidate_demo_credential_record(invalid_record)
+                before_users = self._credential_user_snapshot()
+                before_accounts = self._account_snapshot()
+                errors = StringIO()
+                environment = self._demo_credential_environment(
+                    employee_password="preview-staff-password",
+                    customer_password="preview-customer-password",
+                )
+                with (
+                    patch.dict(os.environ, environment),
+                    patch("podobank_api.cli.validate_demo_seed_target"),
+                    patch("podobank_api.cli.create_database_engine", return_value=self.engine),
+                    redirect_stderr(errors),
+                    redirect_stdout(StringIO()),
+                ):
+                    exit_code = cli_main(["set-demo-credentials"])
+
+                self.assertEqual(exit_code, 2)
+                self.assertEqual(self._credential_user_snapshot(), before_users)
+                self.assertEqual(self._account_snapshot(), before_accounts)
+
+    def _demo_credential_environment(
+        self,
+        *,
+        employee_password: str,
+        customer_password: str,
+    ) -> dict[str, str]:
+        return {
+            "APP_ENV": "development",
+            "DATABASE_URL": "mysql+pymysql://user:password@127.0.0.1:3306/podobank_dev",
+            "BANK_EMPLOYEE_PHONE": TEST_EMPLOYEE_PHONE,
+            "BANK_EMPLOYEE_PASSWORD": employee_password,
+            "DEMO_CUSTOMER_PASSWORD": customer_password,
+        }
+
+    def _credential_user_snapshot(self) -> dict[str, tuple[str, str | None, str]]:
+        with self.engine.connect() as connection:
+            rows = connection.execute(
+                text("SELECT phone_number, password_hash, role FROM users ORDER BY phone_number")
+            ).all()
+        return {
+            str(phone): (str(phone), password_hash, str(role))
+            for phone, password_hash, role in rows
+        }
+
+    def _account_snapshot(self) -> list[tuple[str, int]]:
+        with self.engine.connect() as connection:
+            rows = connection.execute(
+                text("SELECT account_number, balance FROM accounts ORDER BY account_number")
+            ).all()
+        return [(str(account_number), int(balance)) for account_number, balance in rows]
+
+    def _invalidate_demo_credential_record(self, invalid_record: str) -> None:
+        if invalid_record == "missing employee":
+            statement = text("DELETE FROM users WHERE phone_number = :phone")
+            parameters = {"phone": TEST_EMPLOYEE_PHONE}
+        elif invalid_record == "missing demo customer":
+            with self.engine.begin() as connection:
+                user_id = connection.execute(
+                    text("SELECT id FROM users WHERE phone_number = :phone"),
+                    {"phone": DEMO_CUSTOMER_PHONE},
+                ).scalar_one()
+                connection.execute(
+                    text("DELETE FROM accounts WHERE owner_user_id = :user_id"),
+                    {"user_id": user_id},
+                )
+                connection.execute(
+                    text("DELETE FROM users WHERE id = :user_id"), {"user_id": user_id}
+                )
+            return
+        elif invalid_record == "employee has customer role":
+            statement = text("UPDATE users SET role = 'customer' WHERE phone_number = :phone")
+            parameters = {"phone": TEST_EMPLOYEE_PHONE}
+        elif invalid_record == "demo customer has employee role":
+            statement = text("UPDATE users SET role = 'bank_employee' WHERE phone_number = :phone")
+            parameters = {"phone": DEMO_CUSTOMER_PHONE}
+        else:
+            self.fail(f"unknown invalid demo credential fixture: {invalid_record}")
+
+        with self.engine.begin() as connection:
+            connection.execute(statement, parameters)
 
     def test_seed_demo_data_rejects_unsafe_database_targets(self) -> None:
         validator = getattr(database_module, "validate_demo_seed_target", None)

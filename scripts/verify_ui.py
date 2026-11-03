@@ -496,6 +496,9 @@ def verify_preview_compose_config(
         api = services["api"]
         database = services["db"]
         frontend_api_origin = frontend["build"]["args"]["VITE_API_ORIGIN"]
+        api_environment = api["environment"]
+        api_origin = api_environment["API_ORIGIN"]
+        allowed_frontend_origins = api_environment["FRONTEND_ORIGINS"]
         frontend_networks = frontend["networks"]
         api_networks = api["networks"]
         database_networks = database.get("networks", {})
@@ -505,8 +508,16 @@ def verify_preview_compose_config(
     except (KeyError, TypeError, json.JSONDecodeError) as error:
         raise VerificationError("Could not inspect the merged NPM preview Compose model.") from error
 
-    if frontend_api_origin != "/api":
-        raise VerificationError("The NPM preview frontend must call the same-host /api base.")
+    expected_api_origin = "https://podobank-api.oci-dev.duckdns.org"
+    expected_ui_origin = "https://podobank.oci-dev.duckdns.org"
+    if frontend_api_origin != expected_api_origin:
+        raise VerificationError(
+            "The NPM preview frontend must call https://podobank-api.oci-dev.duckdns.org."
+        )
+    if api_origin != expected_api_origin:
+        raise VerificationError("The NPM preview API_ORIGIN must use the API hostname.")
+    if allowed_frontend_origins != expected_ui_origin:
+        raise VerificationError("The NPM preview CORS allowlist must contain only the UI origin.")
     if not {"default", "npm-proxy"}.issubset(frontend_networks):
         raise VerificationError("The preview frontend must retain default and join npm-proxy.")
     if not {"default", "npm-proxy"}.issubset(api_networks):
