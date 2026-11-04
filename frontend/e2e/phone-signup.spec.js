@@ -1,5 +1,11 @@
 import { expect, test } from '@playwright/test';
 
+test('test_phone_signup_phone_input_allows_hyphen_entry_on_mobile', async ({ page }) => {
+  await page.goto('/signup/phone');
+
+  await expect(page.getByLabel('휴대전화번호')).toHaveAttribute('inputmode', 'text');
+});
+
 test('test_phone_signup_submits_formatted_phone_and_redirects_home', async ({ page }) => {
   await page.route('**/auth/phone/signup', (route) =>
     route.fulfill({

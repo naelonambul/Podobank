@@ -36,4 +36,5 @@ test('a first-time Kakao callback opens the signup profile form', async ({ page 
 
   await expect(page).toHaveURL(/\/signup\/profile$/);
   await expect(page.getByRole('heading', { name: '포도뱅크 시작하기' })).toBeVisible();
+  await expect(page.getByLabel('휴대전화번호')).toHaveAttribute('inputmode', 'text');
 });

@@ -66,7 +66,7 @@ async function completeSignup() {
           v-model="phoneNumber"
           class="text-input"
           type="tel"
-          inputmode="numeric"
+          inputmode="text"
           autocomplete="tel"
           placeholder="010-0000-0000"
           pattern="[0-9]{3}-[0-9]{4}-[0-9]{4}"
