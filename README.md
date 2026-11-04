@@ -2,6 +2,10 @@
 
 개발 부트캠프 팀 포트폴리오용 가상 은행 프로젝트입니다. 백엔드는 FastAPI와 MariaDB를 사용하고 SQLAlchemy Core로 SQL을 직접 실행합니다. Grafana Alloy, Loki, Prometheus, Grafana는 Docker Compose로 함께 실행합니다. 고객·직원용 모바일 UI는 Vue 3와 Nginx로 제공합니다.
 
+## 데이터베이스 ERD
+
+MariaDB의 현재 테이블과 키·관계는 [ERD 문서](docs/architecture/podobank-current-erd.html)에서 확인할 수 있습니다.
+
 ## 모바일 웹 앱
 
 고객과 은행 직원을 위한 화면 안내는 [포도뱅크 사용자 매뉴얼](docs/user-manual.md)을 참고하세요.
