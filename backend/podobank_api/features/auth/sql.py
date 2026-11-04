@@ -45,7 +45,7 @@ def insert_customer(
     *,
     name: str,
     phone_number: str,
-    kakao_subject: str,
+    kakao_subject: str | None,
     password_hash: str | None,
     age: int,
     gender: str,

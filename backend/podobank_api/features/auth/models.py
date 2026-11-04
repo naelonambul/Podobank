@@ -17,3 +17,14 @@ class KakaoSignupData:
     marital_status: str
     is_employed: bool
     password: str | None
+
+
+@dataclass(frozen=True)
+class PhoneSignupData:
+    name: str
+    phone_number: str
+    password: str
+    age: int
+    gender: str
+    marital_status: str
+    is_employed: bool

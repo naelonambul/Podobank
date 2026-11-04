@@ -1,0 +1,48 @@
+{
+  "schema": 1,
+  "id": "podobank-phone-signup",
+  "kind": "intent",
+  "title": "Add phone-number customer signup",
+  "base": {
+    "ref": "main",
+    "commit": "e0d783a470b76ff56231884c77b4754efe7c5fa2"
+  },
+  "baseline": {
+    "intent.md": "sha256:713e23285d0340754f840512430a1c1de8dc67bca3018c9bb320a9725d33d420",
+    "spec.md": "sha256:5d9b17dddf625ed0a170a1305a15e607d548b3ea939048faa5885d3fa4966857"
+  },
+  "write_scope": [
+    "backend/podobank_api/features/auth/**",
+    "backend/tests/test_auth.py",
+    "frontend/src/router.js",
+    "frontend/src/views/SignupStartView.vue",
+    "frontend/src/views/PhoneSignupView.vue",
+    "frontend/src/views/SignupView.vue",
+    "frontend/src/views/LoginView.vue",
+    "frontend/e2e/**",
+    "docs/user-manual.md",
+    "intent.md",
+    "spec.md"
+  ],
+  "approvals": [
+    {
+      "artifact": "intent.md",
+      "sha256": "sha256:7fca099d84f513fa003812bf46258e6ffa4e5374029ca9a77ae65772063e4e33",
+      "by": "ckh",
+      "at": "2026-11-04T05:22:55Z"
+    },
+    {
+      "artifact": "spec.md",
+      "sha256": "sha256:ddc4061289d9be97410874ca229953c76a909ea828570cfaa958f36a991cd0b9",
+      "by": "ckh",
+      "at": "2026-11-04T05:27:05Z"
+    },
+    {
+      "artifact": "plan.md",
+      "sha256": "sha256:0f164ab3b72d4f0e72194109ef67b81f93c009a11a09a1498f2973da0e2d3ae6",
+      "by": "ckh",
+      "at": "2026-11-04T05:34:23Z",
+      "write_scope_sha256": "sha256:336450bef61d4e47047a3d2e7580f54357d23b826bdb90534bbbb08cb4af753a"
+    }
+  ]
+}

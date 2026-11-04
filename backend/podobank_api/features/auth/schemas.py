@@ -7,12 +7,22 @@ class KakaoCodeRequest(BaseModel):
 
 
 class KakaoSignupRequest(BaseModel):
-    phone_number: str = Field(pattern=r"^[0-9]{10,15}$")
+    phone_number: str = Field(pattern=r"^[0-9]{3}-[0-9]{4}-[0-9]{4}$")
     age: int = Field(ge=1, le=120)
     gender: str = Field(pattern=r"^(male|female)$")
     marital_status: str = Field(pattern=r"^(single|married)$")
     is_employed: bool
     password: str | None = Field(default=None, min_length=8, max_length=128)
+
+
+class PhoneSignupRequest(BaseModel):
+    name: str = Field(min_length=1, max_length=120)
+    phone_number: str = Field(pattern=r"^[0-9]{3}-[0-9]{4}-[0-9]{4}$")
+    password: str = Field(min_length=8, max_length=128)
+    age: int = Field(ge=1, le=120)
+    gender: str = Field(pattern=r"^(male|female)$")
+    marital_status: str = Field(pattern=r"^(single|married)$")
+    is_employed: bool
 
 
 class LocalLoginRequest(BaseModel):
@@ -22,3 +32,7 @@ class LocalLoginRequest(BaseModel):
 
 class PasswordSetupRequest(BaseModel):
     password: str = Field(min_length=8, max_length=128)
+
+
+def normalize_phone_number(phone_number: str) -> str:
+    return phone_number.replace("-", "")

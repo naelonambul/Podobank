@@ -1,5 +1,8 @@
 import os
 import unittest
+from concurrent.futures import ThreadPoolExecutor
+from threading import Barrier
+from unittest.mock import patch
 from urllib.parse import parse_qs, urlsplit
 
 import httpx
@@ -10,7 +13,6 @@ from podobank_api.app import create_app
 from podobank_api.database import create_database_engine, reset_database, validate_reset_target
 from podobank_api.features.auth.kakao import TOKEN_URL, USER_INFO_URL
 from podobank_api.features.auth.passwords import verify_password
-from podobank_api.seed import DEMO_CUSTOMER_PHONE
 from podobank_api.settings import Settings
 
 TEST_EMPLOYEE_PHONE = "01000000009"
@@ -124,7 +126,7 @@ class AuthenticationApiTests(unittest.TestCase):
             signup = self._complete_signup(
                 client,
                 code="new-user",
-                phone_number="01011110001",
+                phone_number="010-1111-0001",
                 password="customer-password",
             )
             self.assertEqual(signup.status_code, 200)
@@ -189,7 +191,7 @@ class AuthenticationApiTests(unittest.TestCase):
             response = self._complete_signup(
                 client,
                 code="different-user",
-                phone_number=DEMO_CUSTOMER_PHONE,
+                phone_number="010-0000-0001",
             )
 
         self.assertEqual(response.status_code, 409)
@@ -238,7 +240,7 @@ class AuthenticationApiTests(unittest.TestCase):
             signup = self._complete_signup(
                 client,
                 code="password-user",
-                phone_number="01011110003",
+                phone_number="010-1111-0003",
             )
             self.assertEqual(signup.status_code, 200)
 
@@ -269,6 +271,207 @@ class AuthenticationApiTests(unittest.TestCase):
             )
             self.assertEqual(login.status_code, 200)
             self.assertEqual(client.get("/auth/me").status_code, 200)
+
+    def test_phone_signup_creates_customer_account_and_session(self) -> None:
+        payload = {
+            "name": "새 고객",
+            "phone_number": "010-1111-0021",
+            "password": "customer-password",
+            "age": 30,
+            "gender": "female",
+            "marital_status": "single",
+            "is_employed": True,
+        }
+        with TestClient(self.app) as client:
+            response = client.post("/auth/phone/signup", json=payload)
+            self.assertEqual(response.status_code, 200)
+            self.assertEqual(response.json(), {"status": "authenticated"})
+            self.assertIsNotNone(client.cookies.get("podobank_session"))
+            profile = client.get("/auth/me")
+            self.assertEqual(profile.json()["name"], "새 고객")
+            self.assertEqual(profile.json()["phone_number"], "01011110021")
+            self.assertEqual(profile.json()["role"], "customer")
+            self.assertEqual(client.get("/accounts/me").status_code, 200)
+
+            session_cookie = next(
+                value
+                for value in response.headers.get_list("set-cookie")
+                if "podobank_session=" in value
+            )
+            self.assertIn("httponly", session_cookie.lower())
+            self.assertIn("samesite=lax", session_cookie.lower())
+            self.assertNotIn('"token"', response.text)
+
+        with self.engine.connect() as connection:
+            customer = (
+                connection.execute(
+                    text(
+                        "SELECT id, password_hash, kakao_subject, role FROM users "
+                        "WHERE phone_number = '01011110021'"
+                    )
+                )
+                .mappings()
+                .one()
+            )
+            account_count = connection.execute(
+                text("SELECT COUNT(*) FROM accounts WHERE owner_user_id = :user_id"),
+                {"user_id": customer["id"]},
+            ).scalar_one()
+
+        self.assertEqual(customer["role"], "customer")
+        self.assertIsNone(customer["kakao_subject"])
+        self.assertTrue(str(customer["password_hash"]).startswith("$argon2id$"))
+        self.assertTrue(verify_password(str(customer["password_hash"]), "customer-password"))
+        self.assertEqual(account_count, 1)
+
+    def test_phone_signup_rejects_invalid_phone_format(self) -> None:
+        payload = {
+            "name": "잘못된 형식",
+            "password": "customer-password",
+            "age": 30,
+            "gender": "female",
+            "marital_status": "single",
+            "is_employed": True,
+        }
+        with TestClient(self.app) as client:
+            for phone_number in ("01011110022", "010-111-10022", "010 1111 0022"):
+                with self.subTest(phone_number=phone_number):
+                    response = client.post(
+                        "/auth/phone/signup",
+                        json={**payload, "phone_number": phone_number},
+                    )
+                    self.assertEqual(response.status_code, 422)
+                    self.assertIsNone(client.cookies.get("podobank_session"))
+
+    def test_phone_signup_rejects_duplicate_normalized_phone(self) -> None:
+        payload = {
+            "name": "중복 고객",
+            "phone_number": "010-0000-0001",
+            "password": "customer-password",
+            "age": 30,
+            "gender": "female",
+            "marital_status": "single",
+            "is_employed": True,
+        }
+        with TestClient(self.app) as client:
+            response = client.post("/auth/phone/signup", json=payload)
+            self.assertEqual(response.status_code, 409)
+            self.assertEqual(response.json()["detail"]["code"], "phone_already_registered")
+            self.assertIsNone(client.cookies.get("podobank_session"))
+
+        with self.engine.connect() as connection:
+            phone_owner_count = connection.execute(
+                text("SELECT COUNT(*) FROM users WHERE phone_number = '01000000001'")
+            ).scalar_one()
+            account_count = connection.execute(
+                text(
+                    "SELECT COUNT(*) FROM accounts WHERE owner_user_id = "
+                    "(SELECT id FROM users WHERE phone_number = '01000000001')"
+                )
+            ).scalar_one()
+        self.assertEqual(phone_owner_count, 1)
+        self.assertEqual(account_count, 1)
+
+    def test_concurrent_phone_signup_with_same_phone_creates_one_customer(self) -> None:
+        payload = {
+            "name": "동시 가입 고객",
+            "phone_number": "010-1111-0023",
+            "password": "customer-password",
+            "age": 30,
+            "gender": "female",
+            "marital_status": "single",
+            "is_employed": True,
+        }
+        start = Barrier(2)
+
+        def submit_signup() -> httpx.Response:
+            with TestClient(self.app) as client:
+                start.wait(timeout=5)
+                return client.post("/auth/phone/signup", json=payload)
+
+        with ThreadPoolExecutor(max_workers=2) as executor:
+            responses = list(executor.map(lambda _: submit_signup(), range(2)))
+
+        self.assertCountEqual([response.status_code for response in responses], [200, 409])
+        losing_response = next(response for response in responses if response.status_code == 409)
+        self.assertEqual(losing_response.json()["detail"]["code"], "phone_already_registered")
+        with self.engine.connect() as connection:
+            user_id = connection.execute(
+                text("SELECT id FROM users WHERE phone_number = '01011110023'")
+            ).scalar_one()
+            account_count = connection.execute(
+                text("SELECT COUNT(*) FROM accounts WHERE owner_user_id = :user_id"),
+                {"user_id": user_id},
+            ).scalar_one()
+        self.assertEqual(account_count, 1)
+
+    def test_phone_signup_rolls_back_when_default_account_creation_fails(self) -> None:
+        payload = {
+            "name": "롤백 고객",
+            "phone_number": "010-1111-0024",
+            "password": "customer-password",
+            "age": 30,
+            "gender": "female",
+            "marital_status": "single",
+            "is_employed": True,
+        }
+        with patch(
+            "podobank_api.features.auth.service.ensure_default_account",
+            side_effect=RuntimeError("account setup failed"),
+        ):
+            with TestClient(self.app, raise_server_exceptions=False) as client:
+                response = client.post("/auth/phone/signup", json=payload)
+
+        self.assertEqual(response.status_code, 500)
+        self.assertNotIn("podobank_session", response.headers.get("set-cookie", ""))
+        with self.engine.connect() as connection:
+            customer_count = connection.execute(
+                text("SELECT COUNT(*) FROM users WHERE phone_number = '01011110024'")
+            ).scalar_one()
+        self.assertEqual(customer_count, 0)
+
+    def test_phone_signup_cannot_create_employee_and_issues_http_only_session(self) -> None:
+        payload = {
+            "name": "권한 요청 고객",
+            "phone_number": "010-1111-0025",
+            "password": "customer-password",
+            "age": 30,
+            "gender": "female",
+            "marital_status": "single",
+            "is_employed": True,
+            "role": "bank_employee",
+        }
+        with TestClient(self.app) as client:
+            response = client.post("/auth/phone/signup", json=payload)
+            self.assertEqual(response.status_code, 200)
+            self.assertEqual(response.json(), {"status": "authenticated"})
+            self.assertEqual(client.get("/auth/me").json()["role"], "customer")
+            self.assertEqual(client.get("/loans/pending").status_code, 403)
+
+            cookie = next(
+                value
+                for value in response.headers.get_list("set-cookie")
+                if "podobank_session=" in value
+            )
+            self.assertIn("httponly", cookie.lower())
+            self.assertNotIn('"token"', response.text)
+
+    def test_kakao_signup_rejects_invalid_phone_format(self) -> None:
+        with TestClient(self.app) as client:
+            login = self._begin_kakao_login(client, "different-user")
+            self.assertEqual(login.json(), {"status": "registration_required"})
+            response = client.post(
+                "/auth/kakao/signup",
+                json={
+                    "phone_number": "01011110026",
+                    "age": 30,
+                    "gender": "female",
+                    "marital_status": "single",
+                    "is_employed": True,
+                },
+            )
+
+        self.assertEqual(response.status_code, 422)
 
     def test_employee_uses_local_login_and_role_is_loaded_from_database(self) -> None:
         with TestClient(self.app) as client:
