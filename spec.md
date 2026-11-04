@@ -62,9 +62,9 @@
 
 ## Architecture and design
 
-### 이벤트 저장 역할과 전달 흐름
+### 금융 이벤트 저장 역할과 전달 흐름
 
-- MariaDB는 정형 금융 데이터의 원본이다. MongoDB는 API 금융 함수가 커밋한 업무 이벤트를 받는 비정형 이벤트 저장소다.
+- MariaDB는 정형 금융 데이터의 원본이다. MongoDB는 API 금융 함수의 커밋 이벤트와 별도 컬렉션의 프런트 행동 이벤트를 받는 비정형 이벤트 저장소다.
 - FastAPI는 금융 상태 변경 트랜잭션이 커밋된 뒤 해당 함수에서 생성한 안전한 이벤트 문서를 MongoDB에 직접 한 번 기록한다. MongoDB 연결 실패는 금융 상태를 되돌리지 않는다.
 - MongoDB 기록은 최선 노력이다. 큐, 아웃박스, 별도 적재기, 재시도, 재생, 또는 MariaDB 변경 감시는 없다. MongoDB 장애나 커밋 뒤 프로세스 종료로 이벤트가 빠질 수 있다.
 - 이벤트 문서는 공통 UUID, 이벤트 유형, UTC 시각, 스키마 버전과 기존 금융 이벤트의 정적 필드만 담는다. 사용자·계좌 식별자, 금액, 이름, 전화번호, 원시 예외 메시지는 MongoDB에 저장하지 않는다.
@@ -234,3 +234,60 @@ FastAPI와 `process-repayments` CLI는 전용 JSONL 이벤트 파일에 결과 �
 ## Open questions
 
 원장 파티션은 소유자가 정한 월별 간격을 사용한다. 원장 보존 기간은 미정이며 승인된 정책 전에는 자동 파티션 삭제를 허용하지 않는다. 관측 로그의 Loki 보존 기간은 30일, Prometheus 보존 기간은 15일이며 입력 JSONL 볼륨은 자동 삭제하지 않는다.
+
+
+## 프런트 행동 이벤트 수집 (podobank-client-events)
+
+### 목적과 범위
+
+- 모든 성공한 Vue Router 페이지 진입을 `page_view`로 자동 수집한다. 초기 진입과 뒤로/앞으로 이동도 포함한다. 취소되거나 실패한 이동, 가드의 중간 리다이렉트는 수집하지 않는다.
+- `trackEvent(type, props = {})`를 공통 모듈로 제공한다. 이번 변경에서는 송금·대출·버튼 클릭별 호출을 추가하지 않는다. 쇼핑 예시의 이벤트를 포도뱅크 업무 이벤트로 임의 변환하지 않는다.
+- 화면 → FastAPI `POST /events` → 기존 MongoDB의 `client_events` 컬렉션으로 직접 저장한다. 앞선 금융 이벤트 문서의 정적 필드 제한은 `financial_events`에 적용되며, 이 절은 별도 프런트 이벤트의 계약이다. MariaDB, 금융 트랜잭션, JSONL, Loki 및 기존 금융 이벤트 수집과 분리한다.
+
+### 이벤트 계약
+
+단건 JSON 요청의 필수 필드는 다음과 같다.
+
+```json
+{
+  "event_id": "UUID",
+  "type": "page_view",
+  "occurred_at": "2026-11-04T05:46:27.929Z",
+  "session_id": "UUID",
+  "anonymous_id": "UUID",
+  "page": {"path": "/home", "referrer": "https://example.test/"},
+  "props": {"route_name": "home"},
+  "schema_version": 4
+}
+```
+
+- UUID와 UTC 시각은 브라우저에서 생성한다. `occurred_at`은 클라이언트 보고 시각이며 서버는 별도 `received_at`을 기록한다. 사용자의 금융 거래 사실을 증명하는 감사 기록으로 취급하지 않는다.
+- `anonymous_id`는 localStorage에 보관하는 브라우저 식별자, `session_id`는 sessionStorage에 보관하는 탭 세션 식별자다. 로그인 고객 ID·계좌 ID와 연결하지 않는다. 저장소 접근이 막히면 메모리 식별자로 동작하며 화면에 오류를 표시하지 않는다.
+- type은 영문 소문자로 시작하는 `[a-z][a-z0-9_]{0,63}`이다. schema_version은 4만 받는다. 필수 필드 누락·잘못된 타입·미정의 최상위 필드는 거절한다.
+- page.path는 쿼리·해시 없는 경로만 담는다. referrer는 최초에는 document.referrer, 이후에는 직전 페이지 URL을 사용하되 origin과 pathname만 보관한다. 빈 referrer를 허용한다. 서버도 쿼리·해시를 제거해 저장한다.
+- props는 JSON 객체이며 깊이 4, 전체 키 64개, 직렬화 UTF-8 8 KiB 이하로 제한한다. 요청 전체는 32 KiB 이하, path/referrer는 각각 2048자 이하로 제한한다. 크기 초과는 413, 그 외 계약 위반은 422다.
+- 기본 page_view props에는 route_name만 담는다. 폼 값, DOM 텍스트, 전화번호, 이름, 비밀번호, 토큰, 계좌번호, 잔액, 검색어를 자동 수집하지 않는다. 공통 함수를 호출하는 후속 기능도 민감정보를 props에 넣지 않아야 한다.
+
+### 프런트 수집 방식
+
+- 라우터에 한 번 등록한 afterEach 훅에서 성공한 이동당 한 번 발행한다. 각 화면에 page_view 코드를 넣지 않는다. page_view와 사용자 지정 이벤트는 같은 봉투 생성·전송 함수를 쓴다.
+- 기존 VITE_API_ORIGIN의 `/events`로 JSON 단건 요청을 보낸다. 금융 API 경로와 Worker 라우팅은 바꾸지 않는다.
+- 전송을 기다리느라 화면 이동을 지연시키지 않는다. 오류는 공통 로그인 오류 처리나 화면 배너로 전파하지 않는다. 메모리 무한 큐, 자동 재시도, 영구 오프라인 큐, 재생·유실 복구는 추가하지 않는다.
+
+### API와 MongoDB
+
+- 로그인 이전 페이지도 수집하므로 인증 없이 받는다. 기존 명시적 FRONTEND_ORIGINS CORS 정책을 유지하며, 이 정책은 비브라우저 요청의 인증이나 위조 방지 수단이 아님을 명시한다.
+- 원본 클라이언트 객체를 그대로 신뢰하지 않고 검증된 필드만 저장한다. 쿠키·Authorization·IP·User-Agent를 추가 적재하지 않는다.
+- `_id = event_id`를 사용한다. 신규 저장은 201 `{"status":"stored"}`, 동일 event_id 중복은 기존 문서를 덮어쓰지 않고 200 `{"status":"duplicate"}`다.
+- 기존 MONGO_URL, MONGO_DB_NAME을 사용하고 MongoDB 기록의 제한 시간은 2초다. 저장 불가 또는 미설정이면 503 `events_unavailable`을 반환하며, 저장하지 않았는데 성공으로 응답하지 않는다. 브라우저는 이 실패를 삼키고 사용자 흐름을 유지한다.
+- MongoDB 연결은 지연 생성하고 앱 종료 시 정리한다. MongoDB가 중지돼도 API 기동과 금융 기능이 유지된다. 이벤트용 MariaDB 테이블·outbox·수집기·새 Docker 서비스·호스트 포트는 추가하지 않는다.
+- 초기 버전은 자동 만료와 조회 API를 제공하지 않는다. 임의 POST가 가능한 수집 엔드포인트이므로 실제 외부 데이터는 신뢰하지 않으며, 공개 운영의 남용 방지는 후속 운영 과제로 남긴다.
+
+### 인수 기준
+
+- 초기 진입, 정상 페이지 이동, 뒤로 가기에 각각 page_view가 생성되고 가드 리다이렉트의 중간 경로는 기록되지 않는다.
+- 모든 이벤트가 위 봉투를 사용하고 동일 탭의 식별자는 유지된다. 저장소 사용 불가와 POST 실패가 UI 기능에 영향을 주지 않는다.
+- URL 쿼리·해시가 저장되지 않고, 기본 이벤트에 프로필·금융·폼 값이 포함되지 않는다.
+- 실제 POST /events 요청 뒤 MongoDB client_events에서 같은 event_id를 조회할 수 있으며, 중복 요청은 문서 수를 늘리지 않는다.
+- 잘못된 페이로드와 크기 초과를 거절한다. MongoDB 중지 시 /events는 503이고 /health 및 기존 금융 요청은 정상 동작한다.
+- 검증 시 기존 Podobank API·프런트만 중지하고 DB·공유 서비스·볼륨은 유지한다. 제품 구현은 spec과 plan의 순차 승인을 받은 뒤 진행한다.

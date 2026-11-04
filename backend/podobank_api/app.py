@@ -15,6 +15,8 @@ from podobank_api.features.accounts.service import AccountService
 from podobank_api.features.auth.api import router as auth_router
 from podobank_api.features.auth.kakao import KakaoProvider
 from podobank_api.features.auth.service import AuthService
+from podobank_api.features.client_events.api import router as client_events_router
+from podobank_api.features.client_events.mongodb import close_client_event_clients
 from podobank_api.features.financial_events.mongodb import close_mongodb_clients
 from podobank_api.features.loans.api import router as loans_router
 from podobank_api.features.loans.service import LoanService
@@ -30,6 +32,7 @@ async def application_lifespan(_application: FastAPI) -> AsyncIterator[None]:
         yield
     finally:
         close_mongodb_clients()
+        close_client_event_clients()
 
 
 def create_app(
@@ -82,6 +85,7 @@ def create_app(
         allow_methods=["GET", "POST"],
         allow_headers=["Accept", "Content-Type"],
     )
+    application.include_router(client_events_router)
     application.include_router(auth_router)
     application.include_router(accounts_router)
     application.include_router(transactions_router)

@@ -1,0 +1,42 @@
+{
+  "schema": 1,
+  "id": "podobank-client-events",
+  "kind": "behavior",
+  "title": "Collect frontend navigation events through the API",
+  "base": {
+    "ref": "main",
+    "commit": "044549a95acc161dea425399fb0b57e87c4a1e7a"
+  },
+  "baseline": {
+    "intent.md": "sha256:7fca099d84f513fa003812bf46258e6ffa4e5374029ca9a77ae65772063e4e33",
+    "spec.md": "sha256:ddc4061289d9be97410874ca229953c76a909ea828570cfaa958f36a991cd0b9"
+  },
+  "write_scope": [
+    "backend/podobank_api/features/client_events/**",
+    "backend/podobank_api/app.py",
+    "backend/tests/test_client_events.py",
+    "frontend/src/telemetry.js",
+    "frontend/src/router.js",
+    "frontend/e2e/client-events.spec.js",
+    "scripts/verify_mongodb_events.py",
+    "checks.json",
+    "spec.md"
+  ],
+  "approvals": [
+    {
+      "artifact": "spec.md",
+      "sha256": "sha256:b51846559a1a6da9cfe6aa3ff5752414e0ee6da5222d90fb2e6de2eda88faba0",
+      "by": "ckh",
+      "at": "2026-11-04T06:44:05Z",
+      "note": "Owner approved spec digest b51846559a1a6da9cfe6aa3ff5752414e0ee6da5222d90fb2e6de2eda88faba0 in this session"
+    },
+    {
+      "artifact": "plan.md",
+      "sha256": "sha256:9386095ff33906feb732898f7668d207957a84046e7764bb07f2d9b3d400868b",
+      "by": "ckh",
+      "at": "2026-11-04T06:48:40Z",
+      "write_scope_sha256": "sha256:35201e0d8b4ff785526fe5474b26137ae76c42e5393f6adc7afcb330bc6ba283",
+      "note": "Owner approved plan digest 9386095ff33906feb732898f7668d207957a84046e7764bb07f2d9b3d400868b in this session"
+    }
+  ]
+}
