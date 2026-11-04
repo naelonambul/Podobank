@@ -8,10 +8,10 @@
 flowchart LR
   Browser[브라우저] -->|POST /events| API[FastAPI]
   API -->|insert| ClientEvents
-  API -->|MariaDB 트랜잭션| MariaDB[(MariaDB)]
-  API -->|MariaDB commit 뒤 1회·최선 노력| FinancialEvents
-  CLI[상환 배치 CLI] -->|MariaDB 트랜잭션| MariaDB
-  CLI -->|MariaDB commit 뒤 1회·최선 노력| FinancialEvents
+  API -->|금융 API 트랜잭션| MariaDB[(MariaDB)]
+  API -->|금융 API · commit 성공 후 1회·최선 노력| FinancialEvents
+  CLI[상환 배치 CLI] -->|상환 배치 트랜잭션| MariaDB
+  CLI -->|상환 배치 · commit 성공 후 1회·최선 노력| FinancialEvents
   API -->|성공·실패 금융 작업| JSONL[financial-events.jsonl]
   CLI -->|상환 작업 이벤트| JSONL
   JSONL --> Alloy[Grafana Alloy]
