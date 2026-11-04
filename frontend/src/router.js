@@ -1,5 +1,6 @@
 import { createRouter, createWebHistory } from 'vue-router';
 import { loadSession, session } from './session.js';
+import { trackPageView } from './telemetry.js';
 import AccountView from './views/AccountView.vue';
 import EmployeeLoansView from './views/EmployeeLoansView.vue';
 import HomeView from './views/HomeView.vue';
@@ -68,6 +69,10 @@ router.beforeEach(async (to) => {
     return session.user.role === 'bank_employee' ? { name: 'employee-loans' } : { name: 'home' };
   }
   return true;
+});
+
+router.afterEach((to, from, failure) => {
+  if (!failure) trackPageView(to, from);
 });
 
 export default router;

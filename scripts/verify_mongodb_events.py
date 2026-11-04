@@ -311,6 +311,72 @@ def emit_http_deposit(
         raise VerificationError("The API did not return a successful financial deposit.")
 
 
+def emit_client_event(compose, environment, event_id, expected_status, route_name="home"):
+    payload = {
+        "event_id": event_id,
+        "type": "page_view",
+        "occurred_at": "2026-11-04T05:46:27.929Z",
+        "session_id": str(uuid.uuid4()),
+        "anonymous_id": str(uuid.uuid4()),
+        "page": {
+            "path": "/home?code=private#fragment",
+            "referrer": "https://example.test/?token=private",
+        },
+        "props": {"route_name": route_name},
+        "schema_version": 4,
+    }
+    script = """
+import json, sys, time
+from urllib.request import Request, urlopen
+from urllib.error import HTTPError
+request = Request('http://127.0.0.1:8000/events', data=sys.argv[1].encode(),
+                  headers={'Content-Type': 'application/json'}, method='POST')
+started = time.monotonic()
+try:
+    response = urlopen(request, timeout=5)
+except HTTPError as error:
+    response = error
+with response:
+    status = response.status
+    body = json.loads(response.read())
+assert status == int(sys.argv[2]), (status, body)
+expected = {201: {'status': 'stored'}, 200: {'status': 'duplicate'},
+            503: {'detail': {'code': 'events_unavailable'}}}
+assert body == expected[status], body
+assert time.monotonic() - started < 5
+"""
+    run(
+        [
+            *compose,
+            "exec",
+            "-T",
+            "api",
+            "python",
+            "-c",
+            script,
+            json.dumps(payload),
+            str(expected_status),
+        ],
+        label=f"Checking anonymous /events returns {expected_status}.",
+        environment=environment,
+        timeout=15,
+    )
+
+
+def client_documents(compose, environment, database_name):
+    script = (
+        "print(JSON.stringify(db.getSiblingDB("
+        + json.dumps(database_name)
+        + ").client_events.find({}).toArray()));"
+    )
+    output = run(
+        [*compose, "exec", "-T", "mongo", "mongosh", "--quiet", "--eval", script],
+        label="Reading client_events documents from MongoDB.",
+        environment=environment,
+    )
+    return json.loads(output)
+
+
 def verify_smoke(compose: list[str], environment: dict[str, str], values: dict[str, str]) -> None:
     run(
         [*compose, "up", "-d", "--build", "--wait", "--wait-timeout", "300", "db", "mongo", "api"],
@@ -340,6 +406,23 @@ def verify_smoke(compose: list[str], environment: dict[str, str], values: dict[s
         raise VerificationError(f"Expected one MongoDB deposit event, found {len(documents)}.")
     verify_event_document(documents[0])
 
+    client_event_id = str(uuid.uuid4())
+    emit_client_event(compose, environment, client_event_id, 201)
+    emit_client_event(compose, environment, client_event_id, 200, "must-not-overwrite")
+    client_events = client_documents(compose, environment, values["MONGO_DB_NAME"])
+    if len(client_events) != 1:
+        raise VerificationError("Duplicate client event must not insert a second document.")
+    document = client_events[0]
+    if (
+        document.get("_id") != client_event_id
+        or document.get("event_id") != client_event_id
+        or document.get("props") != {"route_name": "home"}
+        or document.get("page") != {"path": "/home", "referrer": "https://example.test/"}
+        or "received_at" not in document
+        or document.get("schema_version") != 4
+    ):
+        raise VerificationError("Client event document violated the validated storage contract.")
+
     run(
         [*compose, "stop", "api", "mongo"],
         label="Stopping the API and MongoDB before the outage restart check.",
@@ -361,12 +444,16 @@ def verify_smoke(compose: list[str], environment: dict[str, str], values: dict[s
         environment,
         label="Creating an authenticated HTTP deposit while MongoDB is stopped.",
     )
+    emit_client_event(compose, environment, str(uuid.uuid4()), 503)
     run(
         [*compose, "up", "-d", "--wait", "--wait-timeout", "120", "mongo"],
         label="Restarting MongoDB after the best-effort write was missed.",
         environment=environment,
         timeout=180,
     )
+    persisted_clients = client_documents(compose, environment, values["MONGO_DB_NAME"])
+    if persisted_clients != client_events:
+        raise VerificationError("Failed client events must not be replayed or alter stored events.")
     documents = mongo_documents(compose, environment, values["MONGO_DB_NAME"])
     if len(documents) != 1:
         raise VerificationError(
