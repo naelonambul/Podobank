@@ -1,0 +1,29 @@
+{
+  "schema": 1,
+  "id": "podobank-architecture-visual-refinement",
+  "kind": "implementation",
+  "title": "Refine Cloudflare and OCI architecture diagrams",
+  "base": {
+    "ref": "main",
+    "commit": "902df62f5e2c4cb28ac9c94292f6da119f44ecb2"
+  },
+  "baseline": {
+    "intent.md": "sha256:7fca099d84f513fa003812bf46258e6ffa4e5374029ca9a77ae65772063e4e33",
+    "spec.md": "sha256:b51846559a1a6da9cfe6aa3ff5752414e0ee6da5222d90fb2e6de2eda88faba0"
+  },
+  "write_scope": [
+    "docs/architecture/**",
+    "docs/superpowers/specs/2026-11-04-podobank-architecture-visual-refinement-design.md",
+    "frontend/scripts/**"
+  ],
+  "approvals": [
+    {
+      "artifact": "plan.md",
+      "sha256": "sha256:3f8aafece71c06c628bd1e4a3f04de3f4dcc6b32b0eb4d6ec017fb3400f70121",
+      "by": "ckh",
+      "at": "2026-11-04T21:03:34Z",
+      "write_scope_sha256": "sha256:a9bcba541e2bd590b54068ac74cdc220f63fdd6d4dba6e3e62475938cac8287d",
+      "note": "Owner approved the new follow-up plan after confirming PR #38 is merged."
+    }
+  ]
+}
