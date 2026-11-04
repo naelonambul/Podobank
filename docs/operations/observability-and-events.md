@@ -7,11 +7,11 @@
 ```mermaid
 flowchart LR
   Browser[브라우저] -->|POST /events| API[FastAPI]
-  API -->|MongoDB insert| ClientEvents[(MongoDB client_events)]
+  API -->|insert| ClientEvents
   API -->|MariaDB 트랜잭션| MariaDB[(MariaDB)]
-  API -->|MariaDB 커밋 뒤 직접 1회 기록| FinancialEvents[(MongoDB financial_events)]
+  API -->|MariaDB commit 뒤 1회·최선 노력| FinancialEvents
   CLI[상환 배치 CLI] -->|MariaDB 트랜잭션| MariaDB
-  CLI -->|커밋 뒤 직접 1회 기록| FinancialEvents
+  CLI -->|MariaDB commit 뒤 1회·최선 노력| FinancialEvents
   API -->|성공·실패 금융 작업| JSONL[financial-events.jsonl]
   CLI -->|상환 작업 이벤트| JSONL
   JSONL --> Alloy[Grafana Alloy]
@@ -19,6 +19,16 @@ flowchart LR
   Alloy -->|금융 작업 카운터 제공| Prometheus[(Prometheus)]
   Loki -->|읽기| Grafana[Grafana]
   Prometheus -->|읽기| Grafana
+
+  subgraph MongoService["MongoDB · podobank_events"]
+    direction TB
+    ClientEvents["client_events<br/>브라우저 이벤트 컬렉션"]
+    FinancialEvents["financial_events<br/>금융 이벤트 컬렉션"]
+  end
+
+  classDef mongoCollection fill:#fff,stroke:#3b8a62,stroke-width:1px,color:#183b2a;
+  class ClientEvents,FinancialEvents mongoCollection;
+  style MongoService fill:#eff9f3,stroke:#33845a,stroke-width:2px;
 ```
 
 Grafana는 Loki와 Prometheus를 조회해 화면에 표시합니다. Grafana가 MongoDB에 이벤트를 쓰지는 않습니다. MongoDB의 두 컬렉션도 서로 별도입니다.
