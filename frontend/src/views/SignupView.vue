@@ -26,7 +26,7 @@ async function completeSignup() {
   submitting.value = true;
   try {
     const payload = {
-      phone_number: phoneNumber.value.replace(/\D/g, ''),
+      phone_number: phoneNumber.value,
       age: Number(age.value),
       gender: gender.value,
       marital_status: maritalStatus.value,
@@ -68,9 +68,11 @@ async function completeSignup() {
           type="tel"
           inputmode="numeric"
           autocomplete="tel"
-          placeholder="01012345678"
-          minlength="10"
-          maxlength="15"
+          placeholder="010-0000-0000"
+          pattern="[0-9]{3}-[0-9]{4}-[0-9]{4}"
+          minlength="13"
+          maxlength="13"
+          title="숫자 3자리-4자리-4자리 형식으로 입력해 주세요."
           required
         />
         <label class="field-label" for="signup-age">나이</label>

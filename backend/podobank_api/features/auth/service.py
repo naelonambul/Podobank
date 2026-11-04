@@ -4,7 +4,7 @@ from sqlalchemy.exc import IntegrityError
 from podobank_api.features.accounts.service import ensure_default_account
 from podobank_api.features.auth import sql
 from podobank_api.features.auth.kakao import KakaoProfile, KakaoProvider
-from podobank_api.features.auth.models import AuthenticatedUser, KakaoSignupData
+from podobank_api.features.auth.models import AuthenticatedUser, KakaoSignupData, PhoneSignupData
 from podobank_api.features.auth.passwords import hash_password, verify_password
 
 
@@ -102,6 +102,39 @@ class AuthService:
                 phone_number=signup.phone_number,
                 conflict=error,
             )
+
+    def complete_phone_signup(self, *, signup: PhoneSignupData) -> AuthenticatedUser:
+        password_hash = hash_password(signup.password)
+        try:
+            with self._engine.begin() as connection:
+                existing = sql.find_user_by_phone(connection, signup.phone_number)
+                if existing is not None:
+                    raise DuplicatePhoneError("phone number is already registered")
+
+                user_id = sql.insert_customer(
+                    connection,
+                    name=signup.name,
+                    phone_number=signup.phone_number,
+                    kakao_subject=None,
+                    password_hash=password_hash,
+                    age=signup.age,
+                    gender=signup.gender,
+                    marital_status=signup.marital_status,
+                    is_employed=signup.is_employed,
+                )
+                ensure_default_account(connection, user_id)
+                return AuthenticatedUser(
+                    id=user_id,
+                    name=signup.name,
+                    phone_number=signup.phone_number,
+                    role="customer",
+                )
+        except IntegrityError as error:
+            with self._engine.connect() as connection:
+                phone_owner = sql.find_user_by_phone(connection, signup.phone_number)
+            if phone_owner is not None:
+                raise DuplicatePhoneError("phone number is already registered") from error
+            raise
 
     def login_locally(self, *, phone_number: str, password: str) -> AuthenticatedUser:
         with self._engine.connect() as connection:

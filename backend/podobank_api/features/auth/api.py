@@ -14,12 +14,14 @@ from podobank_api.features.auth.kakao import (
     KakaoConfigurationError,
     KakaoProviderUnavailable,
 )
-from podobank_api.features.auth.models import AuthenticatedUser, KakaoSignupData
+from podobank_api.features.auth.models import AuthenticatedUser, KakaoSignupData, PhoneSignupData
 from podobank_api.features.auth.schemas import (
     KakaoCodeRequest,
     KakaoSignupRequest,
     LocalLoginRequest,
     PasswordSetupRequest,
+    PhoneSignupRequest,
+    normalize_phone_number,
 )
 from podobank_api.features.auth.service import (
     AuthService,
@@ -180,7 +182,7 @@ def kakao_signup(
             subject=subject,
             name=name,
             signup=KakaoSignupData(
-                phone_number=request.phone_number,
+                phone_number=normalize_phone_number(request.phone_number),
                 age=request.age,
                 gender=request.gender,
                 marital_status=request.marital_status,
@@ -200,6 +202,40 @@ def kakao_signup(
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="invalid signup session",
+        ) from error
+
+    _set_session(response, user, settings)
+    _clear_signup_cookie(response, settings)
+    return {"status": "authenticated"}
+
+
+@router.post("/phone/signup")
+def phone_signup(
+    request: PhoneSignupRequest,
+    http_request: Request,
+    response: Response,
+    service: Annotated[AuthService, Depends(get_auth_service)],
+) -> dict[str, str]:
+    settings = http_request.app.state.settings
+    try:
+        user = service.complete_phone_signup(
+            signup=PhoneSignupData(
+                name=request.name,
+                phone_number=normalize_phone_number(request.phone_number),
+                password=request.password,
+                age=request.age,
+                gender=request.gender,
+                marital_status=request.marital_status,
+                is_employed=request.is_employed,
+            )
+        )
+    except DuplicatePhoneError as error:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail={
+                "code": "phone_already_registered",
+                "message": "phone number is already registered",
+            },
         ) from error
 
     _set_session(response, user, settings)

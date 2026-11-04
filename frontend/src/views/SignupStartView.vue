@@ -31,8 +31,12 @@ async function startSignupWithKakao() {
     <section class="auth-card">
       <p class="eyebrow">CREATE ACCOUNT</p>
       <h1>포도뱅크 회원가입</h1>
-      <p class="page-description">카카오 계정으로 본인 확인을 시작해 주세요.</p>
+      <p class="page-description">전화번호 또는 카카오 계정으로 가입할 수 있어요.</p>
       <MessageBanner :message="error" />
+
+      <RouterLink class="button button-primary button-wide" :to="{ name: 'phone-signup' }">
+        전화번호로 가입하기
+      </RouterLink>
 
       <button
         class="button button-kakao button-wide"

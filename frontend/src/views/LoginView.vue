@@ -111,7 +111,7 @@ async function loginLocally() {
 
       <p class="auth-footnote">
         처음 방문하셨나요?
-        <RouterLink :to="{ name: 'signup' }">카카오로 가입하기</RouterLink>
+        <RouterLink :to="{ name: 'signup' }">회원가입</RouterLink>
       </p>
     </section>
   </main>

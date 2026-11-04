@@ -9,6 +9,7 @@ import LoansView from './views/LoansView.vue';
 import LoginView from './views/LoginView.vue';
 import NotFoundView from './views/NotFoundView.vue';
 import PasswordSetupView from './views/PasswordSetupView.vue';
+import PhoneSignupView from './views/PhoneSignupView.vue';
 import SignupStartView from './views/SignupStartView.vue';
 import SignupView from './views/SignupView.vue';
 import TransactionsView from './views/TransactionsView.vue';
@@ -20,6 +21,7 @@ const router = createRouter({
     { path: '/', name: 'landing', component: LandingView },
     { path: '/login', name: 'login', component: LoginView },
     { path: '/signup', name: 'signup', component: SignupStartView },
+    { path: '/signup/phone', name: 'phone-signup', component: PhoneSignupView },
     { path: '/signup/profile', name: 'signup-profile', component: SignupView },
     { path: '/auth/kakao/callback', name: 'kakao-callback', component: KakaoCallbackView },
     { path: '/unavailable', name: 'unavailable', component: UnavailableView },
