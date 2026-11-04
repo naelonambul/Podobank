@@ -1,0 +1,28 @@
+{
+  "schema": 1,
+  "id": "podobank-observability-manual",
+  "kind": "implementation",
+  "title": "Document observability and MongoDB events",
+  "base": {
+    "ref": "main",
+    "commit": "837ebd0dd5849a92e0452efdace51d61873dcd79"
+  },
+  "baseline": {
+    "intent.md": "sha256:7fca099d84f513fa003812bf46258e6ffa4e5374029ca9a77ae65772063e4e33",
+    "spec.md": "sha256:b51846559a1a6da9cfe6aa3ff5752414e0ee6da5222d90fb2e6de2eda88faba0"
+  },
+  "write_scope": [
+    "README.md",
+    "docs/operations/observability-and-events.md"
+  ],
+  "approvals": [
+    {
+      "artifact": "plan.md",
+      "sha256": "sha256:2d4a095e09c3c9b59287079aeddd4977a527c6504486d4b18d1227cbfee578bc",
+      "by": "owner",
+      "at": "2026-11-04T08:19:44Z",
+      "write_scope_sha256": "sha256:8ef2392c4f4ac6eff9bf2b1618b43064c739b0ab891753c52e4dfa5060efdbd2",
+      "note": "Owner approved revised plan via chat"
+    }
+  ]
+}
