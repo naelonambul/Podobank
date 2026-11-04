@@ -1,0 +1,27 @@
+{
+  "schema": 1,
+  "id": "podobank-readme-architecture",
+  "kind": "implementation",
+  "title": "Link current architecture diagram from README",
+  "base": {
+    "ref": "main",
+    "commit": "b69fbe205319e01ba56d6a26b439efd77a860ccf"
+  },
+  "baseline": {
+    "intent.md": "sha256:713e23285d0340754f840512430a1c1de8dc67bca3018c9bb320a9725d33d420",
+    "spec.md": "sha256:38b6966a22d5c442d5ab3092ded712adf75d9299531ec4b2133c08cb9472e625"
+  },
+  "write_scope": [
+    "README.md"
+  ],
+  "approvals": [
+    {
+      "artifact": "plan.md",
+      "sha256": "sha256:bdc84a9e6ef0b06db333e95fd64fc8919d316d889ae7c05628b075c3ea00b357",
+      "by": "naelonambul",
+      "at": "2026-11-04T02:34:09Z",
+      "write_scope_sha256": "sha256:be3ae3b6479236a18da3e876a0de9dfe9ae2428896d83c3e804db008861b12d0",
+      "note": "Owner approved plan in session: \uc2b9\uc778"
+    }
+  ]
+}
