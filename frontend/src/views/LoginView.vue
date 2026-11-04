@@ -109,7 +109,10 @@ async function loginLocally() {
         </button>
       </form>
 
-      <p class="auth-footnote">처음이라면 카카오 로그인을 진행해 가입할 수 있어요.</p>
+      <p class="auth-footnote">
+        처음 방문하셨나요?
+        <RouterLink :to="{ name: 'signup' }">카카오로 가입하기</RouterLink>
+      </p>
     </section>
   </main>
 </template>

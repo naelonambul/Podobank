@@ -21,7 +21,7 @@ onMounted(async () => {
   try {
     const result = await api.post('/auth/kakao/login', callback);
     if (result.status === 'registration_required') {
-      await router.replace({ name: 'signup' });
+      await router.replace({ name: 'signup-profile' });
       return;
     }
     const user = await loadSession({ force: true });
