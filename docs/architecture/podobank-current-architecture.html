@@ -252,7 +252,11 @@
       /* SVG presentation */
       .architecture text { font-family: inherit; }
       .boundary { fill: #f9fbfd; stroke: #cdd8e4; stroke-width: 2; }
-      .boundary.edge { fill: #f6f4ff; stroke: #cfc4f3; }
+      .boundary-edge-line { stroke: #8f78d6; stroke-width: 2.5; }
+      .edge-route-frame { fill: none; stroke: #c8b9ef; stroke-width: 1.5; }
+      .edge-route-frame.inner { stroke: #e1d9f6; stroke-width: 1; }
+      .edge-route-title { fill: #66539c; font-size: 10px; font-weight: 800; letter-spacing: .04em; }
+      .service-logo { pointer-events: none; }
       .boundary.host { fill: #f7fafc; stroke: #aebfd0; stroke-width: 2.5; }
       .boundary.compose { fill: #fff; stroke: #d8e1eb; stroke-dasharray: 7 7; }
       .boundary-title { fill: #29415c; font-size: 17px; font-weight: 800; }
@@ -369,9 +373,19 @@
               <text class="boundary-title" x="54" y="174">사용자 브라우저</text>
               <text class="boundary-subtitle" x="54" y="194">UI를 받은 뒤 API도 직접 호출</text>
 
-              <rect class="boundary edge" x="330" y="100" width="510" height="800" rx="22" />
-              <text class="boundary-title" x="354" y="139">Cloudflare Edge</text>
-              <text class="boundary-subtitle" x="354" y="159">공개 HTTPS Worker · 기존 Tunnel VPC Service</text>
+              <line class="boundary-edge-line" x1="840" y1="100" x2="840" y2="900" />
+              <text class="boundary-title" x="828" y="128" text-anchor="end">Cloudflare Edge</text>
+              <text class="boundary-subtitle" x="828" y="148" text-anchor="end">공개 HTTPS · 기존 Tunnel VPC</text>
+              <g aria-label="Cloudflare UI Worker와 VPC Service 경로 그룹">
+                <rect class="edge-route-frame" x="350" y="226" width="465" height="146" rx="18" />
+                <rect class="edge-route-frame inner" x="356" y="232" width="453" height="134" rx="14" />
+                <text class="edge-route-title" x="785" y="222" text-anchor="end">UI ROUTE</text>
+              </g>
+              <g aria-label="Cloudflare API Worker와 VPC Service 경로 그룹">
+                <rect class="edge-route-frame" x="350" y="488" width="465" height="176" rx="18" />
+                <rect class="edge-route-frame inner" x="356" y="494" width="453" height="164" rx="14" />
+                <text class="edge-route-title" x="785" y="484" text-anchor="end">API ROUTE</text>
+              </g>
 
               <rect class="boundary host" x="870" y="90" width="1290" height="920" rx="24" />
               <text class="boundary-title" x="897" y="132">OCI 인스턴스 · Docker Compose</text>
@@ -511,9 +525,8 @@
               >
                 <title>Vue 앱 정적 파일을 제공하는 Nginx 컨테이너</title>
                 <rect class="node-bg" x="910" y="252" width="255" height="140" rx="16" fill="#eaf1ff" stroke="#b8cdf4" />
-                <circle cx="939" cy="283" r="16" fill="#3478f6" />
-                <text class="glyph-text" x="939" y="283">UI</text>
-                <text class="node-title" x="966" y="288">Frontend · Nginx</text>
+                <image class="service-logo" href="assets/nginx.svg" x="930" y="268" width="60" height="17" preserveAspectRatio="xMidYMid meet" aria-hidden="true" />
+                <text class="node-title" x="1002" y="288">Frontend · Nginx</text>
                 <text class="node-subtitle" x="930" y="322">Vue 빌드 산출물 제공</text>
                 <text class="node-subtitle" x="930" y="344">host 127.0.0.1:8081 → :80</text>
                 <text class="node-micro" x="930" y="372">API 프록시 없음</text>
@@ -530,9 +543,8 @@
               >
                 <title>FastAPI API 컨테이너와 내부 금융 서비스</title>
                 <rect class="node-bg" x="910" y="480" width="255" height="175" rx="16" fill="#eaf1ff" stroke="#b8cdf4" />
-                <circle cx="939" cy="511" r="16" fill="#3478f6" />
-                <text class="glyph-text" x="939" y="511">API</text>
-                <text class="node-title" x="966" y="516">FastAPI</text>
+                <image class="service-logo" href="assets/fastapi.png" x="930" y="494" width="74" height="27" preserveAspectRatio="xMidYMid meet" aria-hidden="true" />
+                <text class="node-title" x="1016" y="516">FastAPI</text>
                 <text class="node-subtitle" x="930" y="550">host 127.0.0.1:8000 → :8000</text>
                 <text class="node-subtitle" x="930" y="574">credentialed CORS · UI origin만</text>
                 <text class="node-micro" x="930" y="596">https://podobank.i234.workers.dev</text>
@@ -552,9 +564,8 @@
               >
                 <title>MariaDB 금융 source of truth, named volume mariadb_data</title>
                 <rect class="node-bg" x="1260" y="270" width="290" height="145" rx="16" fill="#e5f7f1" stroke="#a7ddcc" />
-                <circle cx="1290" cy="301" r="16" fill="#12856b" />
-                <text class="glyph-text" x="1290" y="301">SQL</text>
-                <text class="node-title" x="1317" y="306">MariaDB</text>
+                <image class="service-logo" href="assets/mariadb.png" x="1280" y="283" width="30" height="30" preserveAspectRatio="xMidYMid meet" aria-hidden="true" />
+                <text class="node-title" x="1318" y="306">MariaDB</text>
                 <text class="node-subtitle" x="1280" y="340">정형 금융 데이터 · source of truth</text>
                 <text class="node-subtitle" x="1280" y="362">127.0.0.1:${DB_PORT:-3306} → :3306</text>
                 <text class="node-micro" x="1280" y="380">host loopback only · public port 아님</text>
@@ -573,9 +584,8 @@
               >
                 <title>MongoDB best-effort 이벤트 저장소, named volume mongodb_data</title>
                 <rect class="node-bg" x="1260" y="480" width="290" height="160" rx="16" fill="#e5f7f1" stroke="#a7ddcc" />
-                <circle cx="1290" cy="511" r="16" fill="#12856b" />
-                <text class="glyph-text" x="1290" y="511">EV</text>
-                <text class="node-title" x="1317" y="516">MongoDB</text>
+                <image class="service-logo" href="assets/mongodb-mark.svg" x="1281" y="492" width="27" height="31" preserveAspectRatio="xMidYMid meet" aria-hidden="true" />
+                <text class="node-title" x="1318" y="516">MongoDB</text>
                 <text class="node-subtitle" x="1280" y="550">API 이벤트 · best effort</text>
                 <text class="node-subtitle" x="1280" y="572">내부 mongo:27017 · host port 없음</text>
                 <rect class="volume-pill" x="1280" y="592" width="132" height="22" rx="11" />
@@ -614,9 +624,8 @@
               >
                 <title>JSONL 수집, Loki write와 Prometheus metrics 제공을 맡는 Alloy</title>
                 <rect class="node-bg" x="1178" y="725" width="202" height="110" rx="15" fill="#f0ebff" stroke="#c9b9ef" />
-                <circle cx="1207" cy="754" r="15" fill="#7554d8" />
-                <text class="glyph-text" x="1207" y="754">A</text>
-                <text class="node-title" x="1232" y="759">Grafana Alloy</text>
+                <image class="service-logo" href="assets/grafana-alloy.svg" x="1197" y="738" width="30" height="30" preserveAspectRatio="xMidYMid meet" aria-hidden="true" />
+                <text class="node-title" x="1235" y="759">Grafana Alloy</text>
                 <text class="node-subtitle" x="1197" y="790">JSONL parse · label · counter</text>
                 <text class="node-micro" x="1197" y="814">내부 metrics :12345</text>
               </g>
@@ -632,8 +641,7 @@
               >
                 <title>Loki 구조화 이벤트 로그 저장소</title>
                 <rect class="node-bg" x="1450" y="725" width="180" height="110" rx="15" fill="#f0ebff" stroke="#c9b9ef" />
-                <circle cx="1478" cy="754" r="15" fill="#7554d8" />
-                <text class="glyph-text" x="1478" y="754">L</text>
+                <image class="service-logo" href="assets/loki.svg" x="1468" y="738" width="27" height="32" preserveAspectRatio="xMidYMid meet" aria-hidden="true" />
                 <text class="node-title" x="1503" y="759">Loki</text>
                 <text class="node-subtitle" x="1468" y="790">로그 · 30일 보존</text>
                 <text class="node-micro" x="1468" y="814">host port 없음</text>
@@ -650,9 +658,8 @@
               >
                 <title>Loki와 Prometheus를 조회하는 Grafana</title>
                 <rect class="node-bg" x="1930" y="800" width="202" height="130" rx="15" fill="#f0ebff" stroke="#c9b9ef" />
-                <circle cx="1959" cy="829" r="15" fill="#7554d8" />
-                <text class="glyph-text" x="1959" y="829">G</text>
-                <text class="node-title" x="1984" y="834">Grafana</text>
+                <image class="service-logo" href="assets/grafana.svg" x="1949" y="813" width="30" height="31" preserveAspectRatio="xMidYMid meet" aria-hidden="true" />
+                <text class="node-title" x="1987" y="834">Grafana</text>
                 <text class="node-subtitle" x="1949" y="864">127.0.0.1:${GRAFANA_PORT:-3000}</text>
                 <text class="node-micro" x="1949" y="891">읽기 전용 · loopback</text>
               </g>
@@ -668,9 +675,8 @@
               >
                 <title>Alloy metrics endpoint를 scrape하는 Prometheus</title>
                 <rect class="node-bg" x="1630" y="875" width="180" height="100" rx="15" fill="#f0ebff" stroke="#c9b9ef" />
-                <circle cx="1658" cy="904" r="15" fill="#7554d8" />
-                <text class="glyph-text" x="1658" y="904">P</text>
-                <text class="node-title" x="1683" y="909">Prometheus</text>
+                <image class="service-logo" href="assets/prometheus.svg" x="1648" y="888" width="30" height="30" preserveAspectRatio="xMidYMid meet" aria-hidden="true" />
+                <text class="node-title" x="1686" y="909">Prometheus</text>
                 <text class="node-subtitle" x="1648" y="940">15일 보존 · host port 없음</text>
                 <text class="node-micro" x="1648" y="960">Alloy metrics scrape</text>
               </g>
