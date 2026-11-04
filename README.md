@@ -4,11 +4,15 @@
 
 ## 데이터베이스 ERD
 
-MariaDB의 현재 테이블과 키·관계는 [ERD 문서](docs/architecture/podobank-current-erd.html)에서 확인할 수 있습니다.
+MariaDB의 현재 테이블과 키·관계를 PNG 미리보기로 확인할 수 있습니다. 이미지를 누르면 원본 크기로 열립니다.
+
+[![Podobank MariaDB ERD 미리보기](docs/architecture/podobank-current-erd.png)](docs/architecture/podobank-current-erd.png)
 
 ## 시스템 아키텍처
 
-현재 서비스 구성과 요청·데이터 흐름은 [시스템 아키텍처 다이어그램](docs/architecture/podobank-current-architecture.html)에서 확인할 수 있습니다.
+현재 서비스 구성과 요청·데이터 흐름을 PNG 미리보기로 확인할 수 있습니다. 이미지를 누르면 원본 크기로 열립니다.
+
+[![Podobank 시스템 아키텍처 미리보기](docs/architecture/podobank-current-architecture.png)](docs/architecture/podobank-current-architecture.png)
 
 ## 모바일 웹 앱
 
