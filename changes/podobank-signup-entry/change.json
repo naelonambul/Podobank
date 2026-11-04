@@ -1,0 +1,42 @@
+{
+  "schema": 1,
+  "id": "podobank-signup-entry",
+  "kind": "behavior",
+  "title": "Add a clear Kakao signup entry",
+  "base": {
+    "ref": "main",
+    "commit": "b69fbe205319e01ba56d6a26b439efd77a860ccf"
+  },
+  "baseline": {
+    "intent.md": "sha256:713e23285d0340754f840512430a1c1de8dc67bca3018c9bb320a9725d33d420",
+    "spec.md": "sha256:38b6966a22d5c442d5ab3092ded712adf75d9299531ec4b2133c08cb9472e625"
+  },
+  "write_scope": [
+    "frontend/src/router.js",
+    "frontend/src/views/LandingView.vue",
+    "frontend/src/views/LoginView.vue",
+    "frontend/src/views/SignupView.vue",
+    "frontend/src/views/SignupStartView.vue",
+    "frontend/src/views/KakaoCallbackView.vue",
+    "frontend/e2e/signup-entry.spec.js",
+    "docs/user-manual.md",
+    "spec.md"
+  ],
+  "approvals": [
+    {
+      "artifact": "spec.md",
+      "sha256": "sha256:5d9b17dddf625ed0a170a1305a15e607d548b3ea939048faa5885d3fa4966857",
+      "by": "naelonambul",
+      "at": "2026-11-04T03:22:13Z",
+      "note": "Owner approved spec in session: \uc2b9\uc778"
+    },
+    {
+      "artifact": "plan.md",
+      "sha256": "sha256:b75048b1dfe3a8deebe16968073ea8c05a0cca00aed86596fedd9eb7675cfd7f",
+      "by": "naelonambul",
+      "at": "2026-11-04T03:43:03Z",
+      "write_scope_sha256": "sha256:16a4aeefd89c7ec0790a076a9b248a4c9105966ce130e309e3f1fce19c038616",
+      "note": "Owner approved revised plan in session: \uc2b9\uc778"
+    }
+  ]
+}

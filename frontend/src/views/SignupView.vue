@@ -50,7 +50,7 @@ async function completeSignup() {
       <RouterLink class="brand" :to="{ name: 'landing' }">
         <span class="brand-mark" aria-hidden="true">포</span><span>포도뱅크</span>
       </RouterLink>
-      <RouterLink class="text-link" :to="{ name: 'login' }">취소</RouterLink>
+      <RouterLink class="text-link" :to="{ name: 'signup' }">취소</RouterLink>
     </header>
 
     <section class="auth-card">

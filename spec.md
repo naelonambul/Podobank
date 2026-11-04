@@ -9,7 +9,7 @@
 ### Functional
 
 - **FR-1 초기 기능 범위:** 이번 구현은 입출금, 계좌 이체, 대출을 제공한다. 체크카드 기능은 포함하지 않는다.
-- **FR-2 가입과 계좌 발급:** 고객은 카카오 로그인으로 가입하고 가입 과정에서 휴대전화번호, 나이, 성별(남성/여성), 혼인 상태(미혼/기혼), 직장 유무를 입력한다. 휴대전화번호는 중복 여부만 확인하며 SMS 인증은 하지 않는다. 신규 사용자의 첫 로그인 때 기본 계좌를 하나 자동 발급하고, 다음 로그인부터 기존 계좌를 사용한다. 사전 등록한 데모 사용자는 가상 번호와 프로필 값을 쓴다.
+- **FR-2 가입과 계좌 발급:** 랜딩 화면에서 로그인(`/login`)과 회원가입(`/signup`)을 별도 진입점으로 제공한다. 회원가입 시작 화면은 카카오 인증을 안내하고 기존 `/auth/kakao/state` 흐름을 시작한다. 신규 카카오 사용자 응답 `registration_required`는 프로필 입력 화면(`/signup/profile`)으로 이어지며, 기존 사용자는 로그인 결과에 따라 홈으로 이동한다. 프로필 입력은 휴대전화번호, 나이, 성별(남성/여성), 혼인 상태(미혼/기혼), 직장 유무를 받고 기존 `/auth/kakao/signup` API를 사용한다. 휴대전화번호는 중복 여부만 확인하며 SMS 인증은 하지 않는다. 휴대전화번호만으로 고객 계정을 만들 수 없다. 신규 사용자의 첫 로그인 때 기본 계좌를 하나 자동 발급하고, 다음 로그인부터 기존 계좌를 사용한다. 사전 등록한 데모 사용자는 가상 번호와 프로필 값을 쓴다. 로그인 화면에는 회원가입 시작 화면으로 가는 명확한 링크를 제공한다.
 - **FR-3 로그인 세션:** 카카오 또는 로컬 로그인 성공 후 서버는 JWT를 HttpOnly 쿠키로 설정한다. API는 해당 세션과 사용자의 DB 역할을 확인한다.
 - **FR-4 화면 서빙, 은행 API와 CORS:** Nginx가 Vue 3 정적 앱을 서빙하고 FastAPI는 금융 API를 전담한다. 로컬 개발에서 브라우저는 설정된 FastAPI origin에 직접 요청한다. 원격 미리보기 UI는 `https://podobank.i234.workers.dev`, API는 `https://podobank-api.i234.workers.dev`에서 제공한다. 두 배포된 Worker는 기존 Tunnel VPC Service를 통해 각각 OCI의 HTTP loopback upstream `127.0.0.1:8081`과 `127.0.0.1:8000`으로 연결한다. 미리보기 빌드는 API Worker origin을 API base로 사용하고 API 경로(`/health`, `/auth/...`, `/accounts/...` 등)를 그대로 요청한다. `/api` 접두사, Worker 코드의 URI 변환, Nginx path rewrite는 사용하지 않는다. FastAPI는 UI Worker의 정확한 origin만 CORS 허용 목록에 두고 credential 포함 요청을 허용한다. JWT 쿠키를 전달하기 위해 Vue 요청은 credentials를 포함하며, 허용 origin·HTTP method·header를 명시하고 credentials 사용 시 와일드카드(`*`)를 쓰지 않는다.
 - **FR-5 입출금과 이체:** 입금은 잔액을 늘리고, 출금과 계좌 이체는 보내는 계좌 잔액을 줄인다. 이체는 받는 계좌 잔액도 늘린다. 결제 동작도 계좌 이체로 처리한다. 받는 사용자는 계좌번호, 휴대전화번호, 사용자 목록에서 찾을 수 있어야 한다.
@@ -48,7 +48,7 @@
 
 ## User experience and behavior
 
-- 고객은 카카오 로그인 후 휴대전화번호와 프로필 정보를 등록하고 자동 발급된 기본 계좌로 입출금, 이체, 대출 기능을 이용한다. 비밀번호를 설정한 고객은 휴대전화번호와 비밀번호로도 로그인할 수 있다.
+- 고객은 랜딩 화면의 회원가입을 선택해 카카오 인증을 시작한다. 신규 카카오 사용자는 인증 뒤 별도의 프로필 화면에서 휴대전화번호와 프로필 정보를 등록하고 자동 발급된 기본 계좌로 입출금, 이체, 대출 기능을 이용한다. 기존 고객은 로그인 화면에서 카카오 또는 설정한 휴대전화번호·비밀번호로 로그인한다. 휴대전화번호만으로 가입하는 흐름은 제공하지 않는다.
 - 은행 직원은 초기 데이터에 등록된 계정으로 휴대전화번호와 비밀번호를 사용해 로컬 로그인한다. 은행 직원 로그인을 위해 카카오 로그인을 요구하지 않는다.
 - 프로필 정보는 후속 상품 추천을 위한 데이터로 저장하며, 이번 초기 구현은 추천 결과를 제공하지 않는다.
 - 이체 상대는 계좌번호나 휴대전화번호로 검색하거나 사용자 목록에서 선택한다. 이름이 같은 사용자는 휴대전화 뒷자리나 계좌번호 같은 보조 정보로 구분한다.
@@ -147,7 +147,7 @@ FastAPI와 `process-repayments` CLI는 전용 JSONL 이벤트 파일에 결과 �
 - **개발·데모 서비스 실행:** Docker Compose
 - **브라우저 API 연결:** 로컬은 FastAPI 직접 origin, Worker 미리보기는 `https://podobank-api.i234.workers.dev` base; FastAPI CORS는 `https://podobank.i234.workers.dev`만 허용하고 필요한 method·header 및 credentials를 지정
 - **HTTPS 미리보기:** `compose.npm-preview.yaml` overlay의 API/frontend build configuration, UI Worker `podobank.i234.workers.dev`와 API Worker `podobank-api.i234.workers.dev`, 기존 Tunnel VPC Service에서 OCI loopback HTTP ports 8081/8000으로 전달, 기존 API paths, Secure·HttpOnly·SameSite=Lax 쿠키
-- **가입·로그인:** 고객 카카오 로그인 및 선택적 비밀번호 로컬 로그인, 직원 로컬 로그인
+- **가입·로그인:** `/signup`의 카카오 가입 시작 화면, 카카오 인증 뒤 `/signup/profile`의 고객 프로필 등록, `/login`의 카카오 또는 선택적 비밀번호 로컬 로그인, 직원 로컬 로그인
 - **관측:** Grafana Alloy, Loki, Prometheus, Grafana. Alloy는 금융 이벤트 스트림을 처리해 Prometheus의 `podobank_financial_operations_total` 카운터를 만든다.
 - **금융·프로필 데이터:** 사용자, 휴대전화번호, 나이, 성별, 혼인 상태, 직장 유무, 계정 등급, 계좌, 잔액, 이체, 대출 상품, 대출 신청·승인·상환
 - **기본키와 조회 키:** `users.id`와 `accounts.id`는 짧은 숫자 기본키로 둔다. 전화번호와 카카오 사용자 식별자는 각각 고유 인덱스를 둔다. JWT의 `sub`와 원장 행의 계좌·사용자 참조 값은 내부 사용자·계좌 ID를 사용한다. 계좌 소유자와 계좌번호도 고유 인덱스로 찾는다. 원장 `entry_id`는 `BIGINT UNSIGNED AUTO_INCREMENT`로 생성한다. 날짜 파티션 키 `posted_at`은 원장 테이블의 모든 고유 키에 포함하며, 원장 기본키는 `(entry_id, posted_at)`으로 둔다.
@@ -178,6 +178,8 @@ FastAPI와 `process-repayments` CLI는 전용 JSONL 이벤트 파일에 결과 �
 
 ## Acceptance criteria
 
+- 랜딩 화면에서 회원가입과 기존 계정 로그인을 서로 구분해 진입할 수 있다. 회원가입은 `/signup`에서 카카오 인증을 시작하고 로그인은 `/login`으로 간다.
+- 신규 카카오 사용자에게만 프로필 입력 화면(`/signup/profile`)이 표시되며, 기존 카카오 사용자는 로그인된다. 고객은 휴대전화번호만으로 가입할 수 없다.
 - 최초 카카오 로그인 때 기본 계좌 한 개가 발급되고 재로그인 때 중복 발급되지 않는다.
 - 비밀번호를 설정하지 않은 고객은 로컬 로그인에 실패하고 카카오 로그인만 사용할 수 있다. 고객은 인증된 카카오 세션에서 비밀번호를 설정한 뒤 로컬 로그인할 수 있다.
 - 사전 등록된 은행 직원은 카카오 로그인 없이 로컬 로그인할 수 있고, 로그인 뒤에도 직원 전용 API는 직원 역할만 허용한다.

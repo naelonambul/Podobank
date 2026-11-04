@@ -24,13 +24,13 @@ const router = useRouter();
       <button
         class="button button-primary button-wide"
         type="button"
-        @click="router.push({ name: 'login' })"
+        @click="router.push({ name: 'signup' })"
       >
         포도뱅크 시작하기
       </button>
       <p class="landing-signup">
         처음 방문하셨나요?
-        <RouterLink :to="{ name: 'login' }">로그인하고 가입하기</RouterLink>
+        <RouterLink :to="{ name: 'signup' }">회원가입</RouterLink>
       </p>
     </section>
 
