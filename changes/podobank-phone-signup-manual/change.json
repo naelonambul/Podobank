@@ -1,0 +1,28 @@
+{
+  "schema": 1,
+  "id": "podobank-phone-signup-manual",
+  "kind": "implementation",
+  "title": "Document phone-based customer signup",
+  "base": {
+    "ref": "main",
+    "commit": "837ebd0dd5849a92e0452efdace51d61873dcd79"
+  },
+  "baseline": {
+    "intent.md": "sha256:7fca099d84f513fa003812bf46258e6ffa4e5374029ca9a77ae65772063e4e33",
+    "spec.md": "sha256:b51846559a1a6da9cfe6aa3ff5752414e0ee6da5222d90fb2e6de2eda88faba0"
+  },
+  "write_scope": [
+    "docs/user-manual.md",
+    "docs/images/user-manual/**"
+  ],
+  "approvals": [
+    {
+      "artifact": "plan.md",
+      "sha256": "sha256:db22ae261d06305cc511c20ddd0958b421b294e30f77b1eeb471fa3929f05939",
+      "by": "owner",
+      "at": "2026-11-04T07:17:35Z",
+      "write_scope_sha256": "sha256:c51a68be0b489d3acea1fa5acdc10ae70024e368e928f4378ab4ee80a16bc35c",
+      "note": "Owner approved plan via chat"
+    }
+  ]
+}
