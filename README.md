@@ -6,6 +6,10 @@
 
 MariaDB의 현재 테이블과 키·관계는 [ERD 문서](docs/architecture/podobank-current-erd.html)에서 확인할 수 있습니다.
 
+## 시스템 아키텍처
+
+현재 서비스 구성과 요청·데이터 흐름은 [시스템 아키텍처 다이어그램](docs/architecture/podobank-current-architecture.html)에서 확인할 수 있습니다.
+
 ## 모바일 웹 앱
 
 고객과 은행 직원을 위한 화면 안내는 [포도뱅크 사용자 매뉴얼](docs/user-manual.md)을 참고하세요.
